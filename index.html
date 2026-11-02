@@ -152,7 +152,16 @@ button { cursor: pointer; }
 .topbar .seg { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.18); }
 .topbar .seg button { color: rgba(255,255,255,.75); }
 .topbar .seg button.on { background: #fff; color: #0f172a; }
-.userchip { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
+.userchip { display: flex; align-items: center; gap: 9px; font-size: 12.5px; background: none; border: none; color: #fff; text-align: left; padding: 4px 8px 4px 4px; border-radius: 10px; cursor: pointer; }
+.userchip:hover, .userchip.on { background: rgba(255,255,255,.12); }
+.userchip .caret { display: inline-flex; color: rgba(255,255,255,.6); }
+.userchip .caret svg { width: 14px; height: 14px; }
+.umenu-wrap { position: relative; }
+.umenu { position: absolute; right: 0; top: calc(100% + 8px); min-width: 180px; background: var(--surface, #fff); color: var(--ink, #0f172a); border: 1px solid var(--rule-strong, #ddd); border-radius: 10px; box-shadow: 0 10px 30px rgba(15,23,42,.22); padding: 6px; z-index: 50; display: flex; flex-direction: column; }
+.umenu button { display: flex; align-items: center; gap: 10px; background: none; border: none; color: inherit; padding: 9px 10px; border-radius: 7px; font-size: 13.5px; text-align: left; cursor: pointer; }
+.umenu button:hover { background: rgba(15,23,42,.07); }
+.umenu button svg { width: 16px; height: 16px; opacity: .7; }
+.umenu button.sep { border-top: 1px solid var(--rule-strong, #ddd); border-radius: 0 0 7px 7px; margin-top: 4px; padding-top: 11px; }
 .userchip .av { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.16); color: #fff; display: grid; place-items: center; font-size: 11.5px; font-weight: 700; flex: none; }
 .userchip .who { line-height: 1.2; min-width: 0; }
 .userchip .who b { display: block; font-weight: 600; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
@@ -363,6 +372,18 @@ table.ledger td.na { color: var(--rule-strong); }
 .auth .side { background: #111827; color: #f9fafb; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; }
 .auth .side h1 { font-size: clamp(32px, 4.5vw, 52px); font-weight: 700; letter-spacing: -.02em; line-height: 1.1; margin: 0; max-width: 14ch; }
 .auth .side h1 em { font-style: normal; color: #93c5fd; }
+.auth .side .art { flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 0; min-height: 0; }
+.auth .side .art svg { width: 100%; max-width: 600px; height: auto; }
+.auth .side .art .truck { transform: translateX(270px); animation: drive 11s linear infinite; }
+.auth .side .art .lane { animation: lane 1s linear infinite; }
+.auth .side .art .fa { animation: floaty 6s ease-in-out infinite; }
+.auth .side .art .fb { animation: floaty 6s ease-in-out -3s infinite; }
+@keyframes drive { from { transform: translateX(-150px); } to { transform: translateX(640px); } }
+.auth .side .art .beam { animation: beam 1.6s ease-in-out infinite; }
+@keyframes beam { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes lane { to { stroke-dashoffset: -30; } }
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@media (prefers-reduced-motion: reduce) { .auth .side .art .truck, .auth .side .art .lane, .auth .side .art .fa, .auth .side .art .fb, .auth .side .art .beam { animation: none; } }
 .auth .side p { color: rgba(249,250,251,.75); max-width: 42ch; font-size: 15px; }
 .auth .side .ruled { border-top: 1px solid rgba(249,250,251,.2); padding-top: 14px; font-size: 12.5px; color: rgba(249,250,251,.6); display: flex; gap: 20px; }
 .auth .box { display: grid; place-items: center; padding: 40px 24px; background: var(--surface); }
@@ -405,6 +426,7 @@ table.ledger td.na { color: var(--rule-strong); }
   .settings .snav { position: static; flex-direction: row; flex-wrap: wrap; }
   .auth { grid-template-columns: 1fr; }
   .auth .side { padding: 28px 20px; }
+  .auth .side .art { display: none; }
   .demo-band { padding: 6px 14px; }
   .attn .row { grid-template-columns: 1fr; gap: 4px; }
 }
@@ -937,17 +959,26 @@ function renderTopbar() {
   const vis = visibleCountries();
   const u = state.user;
   const initials = u && (u.name || u.email || "?").split(/[\s@._]+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join("");
-  const tabs = [["day", "Daily check", "ledger"], ["stores", "Store history", "stores"], perm("logLark") ? ["lark", "Store reports", "lark"] : null, ["settings", "Settings", "settings"]].filter(Boolean);
+  const tabs = [["day", "Daily check", "ledger"], ["stores", "Store history", "stores"], perm("logLark") ? ["lark", "Store reports", "lark"] : null].filter(Boolean);
+  const go = (tab) => { state.menu = false; if (tab) state.settingsTab = tab; setView("settings"); };
   return h("header", { class: "topbar" },
     h("div", { class: "brand" }, h("div", { class: "mark" }, h("span", { html: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h8"/></svg>', style: { display: "inline-flex" } })),
       h("div", null, h("div", { class: "t1" }, "Store Transfer Receiving Report"), h("div", { class: "t2" }, "IORA Group"))),
     h("nav", { class: "tabs" }, tabs.map(([v, t, i]) => h("button", { class: state.view === v ? "on" : "", onclick: () => setView(v) }, icon(i), t))),
     h("div", { class: "right" },
       h("div", { class: "seg" }, vis.map(c => h("button", { class: c.id === state.country ? "on" : "", onclick: () => setCountry(c.id) }, c.id))),
-      u ? h("div", { class: "userchip" }, h("div", { class: "av" }, initials || "?"),
-        h("div", { class: "who" }, h("b", null, u.name || u.email), h("span", null, roleName(u.role))),
-        FIREBASE_CONFIG ? h("button", { class: "out", title: "Sign out", onclick: () => auth.signOut() }, icon("logout")) : null) : null));
+      u ? h("div", { class: "umenu-wrap" },
+        h("button", { class: "userchip" + (state.view === "settings" || state.menu ? " on" : ""), "aria-haspopup": "menu", "aria-expanded": state.menu ? "true" : "false", onclick: e => { e.stopPropagation(); state.menu = !state.menu; render(); } },
+          h("div", { class: "av" }, initials || "?"),
+          h("div", { class: "who" }, h("b", null, u.name || u.email), h("span", null, roleName(u.role))),
+          h("span", { class: "caret", html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' })),
+        state.menu ? h("div", { class: "umenu", role: "menu" },
+          h("button", { role: "menuitem", onclick: () => go("profile") }, icon("lark"), "Profile"),
+          h("button", { role: "menuitem", onclick: () => go("users") }, icon("settings"), "Settings"),
+          FIREBASE_CONFIG ? h("button", { role: "menuitem", class: "sep", onclick: () => { state.menu = false; auth.signOut(); } }, icon("logout"), "Sign out") : null) : null) : null));
 }
+document.addEventListener("click", e => { if (state.menu && !(e.target.closest && e.target.closest(".umenu-wrap"))) { state.menu = false; render(); } });
+window.addEventListener("keydown", e => { if (e.key === "Escape" && state.menu) { state.menu = false; render(); } });
 // The last 14 days as a horizontal strip, oldest on the left: pieces received (SWIMS) and a red dot when stores need a look.
 function dayStrip() {
   const list = []; for (let i = RAIL_DAYS - 1; i >= 0; i--) list.push(addDays(todayStr(), -i));
@@ -1547,15 +1578,63 @@ function settingsAppearance(body) {
 }
 
 /* ============================== AUTH ============================== */
+// Decorative picture for the sign-in page (no words): warehouse, delivery truck, store with a "delivered" tick, floating report cards.
+const AUTH_ART = '<svg viewBox="0 0 600 420" xmlns="http://www.w3.org/2000/svg" role="presentation">' +
+  '<defs><pattern id="adots" width="22" height="22" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="#fff" opacity=".10"/></pattern>' +
+  '<radialGradient id="aglow"><stop offset="0" stop-color="#3b82f6" stop-opacity=".30"/><stop offset="1" stop-color="#3b82f6" stop-opacity="0"/></radialGradient>' +
+  '<radialGradient id="afade"><stop offset="0" stop-color="#fff"/><stop offset=".55" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>' +
+  '<mask id="amask" maskContentUnits="objectBoundingBox"><rect width="1" height="1" fill="url(#afade)"/></mask>' +
+  '<linearGradient id="aroad" x1="0" x2="1"><stop offset="0" stop-color="#0b1220" stop-opacity="0"/><stop offset=".12" stop-color="#0b1220" stop-opacity=".8"/><stop offset=".88" stop-color="#0b1220" stop-opacity=".8"/><stop offset="1" stop-color="#0b1220" stop-opacity="0"/></linearGradient>' +
+  '<linearGradient id="awin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fde68a" stop-opacity=".30"/><stop offset="1" stop-color="#0f172a" stop-opacity=".9"/></linearGradient></defs>' +
+  '<g mask="url(#amask)"><rect width="600" height="420" fill="url(#adots)"/></g><circle cx="300" cy="210" r="200" fill="url(#aglow)"/>' +
+  // skyline
+  '<g fill="#16213a" stroke="#93c5fd" stroke-opacity=".18" stroke-width="1.5">' +
+  '<rect x="248" y="250" width="40" height="90"/><rect x="292" y="278" width="30" height="62"/><rect x="326" y="236" width="46" height="104"/><rect x="376" y="276" width="34" height="64"/></g>' +
+  '<g fill="#93c5fd" fill-opacity=".28"><rect x="256" y="262" width="6" height="6"/><rect x="270" y="262" width="6" height="6"/><rect x="256" y="278" width="6" height="6"/><rect x="270" y="294" width="6" height="6"/>' +
+  '<rect x="336" y="250" width="6" height="6"/><rect x="352" y="250" width="6" height="6"/><rect x="336" y="268" width="6" height="6"/><rect x="352" y="286" width="6" height="6"/></g>' +
+  // warehouse
+  '<g stroke="#93c5fd" stroke-width="2" stroke-linejoin="round">' +
+  '<rect x="26" y="248" width="206" height="92" fill="#1e293b"/><path d="M18 248 L129 206 L240 248 Z" fill="#243352"/>' +
+  '<rect x="44" y="286" width="46" height="54" fill="#0f172a"/><rect x="100" y="286" width="46" height="54" fill="#0f172a"/><rect x="156" y="286" width="46" height="54" fill="#0f172a"/>' +
+  '<path d="M44 298 H90 M44 310 H90 M44 322 H90 M100 298 H146 M100 310 H146 M100 322 H146 M156 298 H202 M156 310 H202 M156 322 H202" fill="none" stroke-opacity=".45"/></g>' +
+  '<g stroke="#93c5fd" stroke-width="2" stroke-linejoin="round" fill="#1e293b"><rect x="212" y="316" width="30" height="24" rx="3"/><rect x="226" y="296" width="24" height="20" rx="3"/></g>' +
+  // skyline continues on the right
+  '<g fill="#16213a" stroke="#93c5fd" stroke-opacity=".18" stroke-width="1.5"><rect x="440" y="258" width="44" height="82"/><rect x="488" y="226" width="50" height="114"/><rect x="542" y="272" width="36" height="68"/></g>' +
+  '<g fill="#93c5fd" fill-opacity=".28"><rect x="450" y="270" width="6" height="6"/><rect x="464" y="270" width="6" height="6"/><rect x="450" y="288" width="6" height="6"/><rect x="498" y="240" width="6" height="6"/><rect x="514" y="240" width="6" height="6"/><rect x="498" y="258" width="6" height="6"/><rect x="514" y="276" width="6" height="6"/><rect x="552" y="284" width="6" height="6"/></g>' +
+  // parcels on a pallet being scanned with a handheld, then confirmed
+  '<g stroke="#93c5fd" stroke-width="2" stroke-linejoin="round"><rect x="452" y="331" width="122" height="9" fill="#243352"/>' +
+  '<rect x="456" y="295" width="34" height="36" fill="#1e293b"/><rect x="492" y="295" width="34" height="36" fill="#1e293b"/><rect x="528" y="295" width="42" height="36" fill="#1e293b"/>' +
+  '<rect x="468" y="259" width="44" height="36" fill="#1e293b"/><rect x="514" y="263" width="42" height="32" fill="#1e293b"/>' +
+  '<path d="M473 295 V308 M509 295 V308 M549 295 V308 M490 259 V272 M535 263 V274" fill="none" stroke-opacity=".5"/></g>' +
+  '<g fill="#bfdbfe" fill-opacity=".7"><rect x="462" y="316" width="12" height="5" rx="1"/><rect x="534" y="316" width="14" height="5" rx="1"/></g>' +
+  '<polygon class="beam" points="452,276 468,262 468,298" fill="#f87171" fill-opacity=".45"/><line class="beam" x1="452" y1="276" x2="468" y2="280" stroke="#f87171" stroke-width="2" stroke-linecap="round"/>' +
+  '<g transform="translate(404 263)" stroke="#93c5fd" stroke-width="2" stroke-linejoin="round">' +
+  '<path d="M10 26 H32 L29 58 a5 5 0 0 1 -5 4 H17 a5 5 0 0 1 -5 -5 Z" fill="#0f172a"/>' +
+  '<rect x="0" y="0" width="46" height="28" rx="7" fill="#0f172a"/><rect x="6" y="5" width="22" height="14" rx="2" fill="#1e293b"/>' +
+  '<path d="M10 13 l4 4 l8 -8" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/>' +
+  '<rect x="41" y="7" width="7" height="14" rx="2" fill="#f87171" stroke="none"/><circle cx="21" cy="42" r="3.5" fill="#2563eb" stroke="none"/></g>' +
+  '<circle cx="550" cy="238" r="16" fill="#22c55e"/><path d="M542 238 l6 6 l11 -12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>' +
+  // ground under the warehouse and the parcels
+  '<rect x="10" y="340" width="580" height="8" rx="4" fill="#93c5fd" fill-opacity=".10"/><line x1="10" y1="340" x2="590" y2="340" stroke="#93c5fd" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>' +
+  // floating cards: a small chart and a checklist
+  '<g class="fa"><rect x="226" y="34" width="140" height="92" rx="12" fill="#fff" fill-opacity=".06" stroke="#fff" stroke-opacity=".18"/><rect x="242" y="50" width="48" height="6" rx="3" fill="#fff" fill-opacity=".4"/>' +
+  '<g fill="#60a5fa"><rect x="244" y="92" width="14" height="20" rx="2"/><rect x="266" y="78" width="14" height="34" rx="2"/><rect x="288" y="86" width="14" height="26" rx="2"/><rect x="310" y="68" width="14" height="44" rx="2" fill="#93c5fd"/><rect x="332" y="76" width="14" height="36" rx="2"/></g></g>' +
+  '<g class="fb"><rect x="392" y="66" width="160" height="104" rx="12" fill="#fff" fill-opacity=".06" stroke="#fff" stroke-opacity=".18"/>' +
+  '<g fill="#22c55e"><circle cx="414" cy="94" r="8"/><circle cx="414" cy="120" r="8"/><circle cx="414" cy="146" r="8" fill="#f59e0b"/></g>' +
+  '<g fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M410 94 l3 3 l5 -6 M410 120 l3 3 l5 -6"/></g>' +
+  '<g fill="#fff" fill-opacity=".35"><rect x="432" y="91" width="96" height="6" rx="3"/><rect x="432" y="117" width="78" height="6" rx="3"/><rect x="432" y="143" width="88" height="6" rx="3"/></g></g>' +
+  // sparkles
+  '<g fill="#93c5fd" fill-opacity=".5"><circle cx="60" cy="70" r="3"/><circle cx="150" cy="40" r="2"/><circle cx="96" cy="130" r="2.5"/><circle cx="196" cy="100" r="2"/><circle cx="580" cy="40" r="2.5"/></g>' +
+  '</svg>';
 function authSide() {
   return h("div", { class: "side" },
-    h("div", null, h("div", { class: "eyebrow", style: { color: "rgba(244,241,234,.6)" } }, "IORA Group · Outlet receiving"),
-      h("h1", { style: { marginTop: "18px" } }, "Store Transfer ", h("em", null, "Receiving Report")),
-      h("p", null, "Every store, every day: what SWIMS says arrived, what the store reported in Lark, and why they differ.")),
-    h("div", { class: "ruled" }, h("span", null, "SG · MY"), h("span", null, "Stock transfer outlet receiving"), h("span", null, "Internal use")));
+    h("div", null, h("div", { class: "eyebrow", style: { color: "rgba(244,241,234,.6)" } }, "IORA Group"),
+      h("h1", { style: { marginTop: "18px" } }, "Store Transfer ", h("em", null, "Receiving Report"))),
+    h("div", { class: "art", "aria-hidden": "true", html: AUTH_ART }));
 }
 function showLogin(mode) {
   mode = mode || "signin";
+  const nameIn = h("input", { type: "text", placeholder: "Your full name", autocomplete: "name", maxlength: "80" });
   const email = h("input", { type: "email", placeholder: "you@iora.com.my", autocomplete: "username" });
   const pass = h("input", { type: "password", placeholder: "••••••••", autocomplete: mode === "signup" ? "new-password" : "current-password" });
   const err = h("div", { class: "err" }), ok = h("div", { class: "ok" });
@@ -1563,13 +1642,20 @@ function showLogin(mode) {
     e.preventDefault(); err.textContent = ""; ok.textContent = "";
     try {
       if (mode === "signin") await auth.signInWithEmailAndPassword(email.value.trim(), pass.value);
-      else if (mode === "signup") { await auth.createUserWithEmailAndPassword(email.value.trim(), pass.value); }
+      else if (mode === "signup") {
+        const nm = nameIn.value.trim();
+        if (!nm) { err.textContent = "Please enter your name."; return; }
+        window.__pendingName = nm;   // read by the first-sign-in handler below
+        const cred = await auth.createUserWithEmailAndPassword(email.value.trim(), pass.value);
+        try { await cred.user.updateProfile({ displayName: nm }); await fsdb.collection("users").doc(cred.user.uid).set({ name: nm }, { merge: true }); if (state.user) state.user.name = nm; } catch (e) { /* name still saved on first load */ }
+      }
       else { await auth.sendPasswordResetEmail(email.value.trim()); ok.textContent = "Reset link sent — check your inbox."; }
     } catch (ex) { err.textContent = friendlyAuthError(ex); }
   }
   const form = h("form", { onsubmit: submit },
     h("h2", null, mode === "signin" ? "Sign in" : mode === "signup" ? "Create your account" : "Reset password"),
     h("div", { class: "sub" }, mode === "signin" ? "Use the account your Administrator created for you." : mode === "signup" ? "An Administrator approves new accounts before they can see anything." : "We'll email you a link to choose a new password."),
+    mode === "signup" ? h("label", { class: "field" }, h("span", null, "Name"), nameIn) : null,
     h("label", { class: "field" }, h("span", null, "Email"), email),
     mode !== "reset" ? h("label", { class: "field" }, h("span", null, "Password"), pass) : null,
     h("button", { class: "btn solid", type: "submit", style: { justifyContent: "center" } }, mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"),
@@ -1578,7 +1664,7 @@ function showLogin(mode) {
       mode === "signin" ? (state.settings.allowSelfSignup !== false ? h("a", { href: "#", onclick: e => { e.preventDefault(); showLogin("signup"); } }, "Create account") : h("span")) : h("a", { href: "#", onclick: e => { e.preventDefault(); showLogin("signin"); } }, "Back to sign in"),
       mode === "signin" ? h("a", { href: "#", onclick: e => { e.preventDefault(); showLogin("reset"); } }, "Forgot password?") : null));
   document.getElementById("root").replaceChildren(h("div", { class: "auth" }, authSide(), h("div", { class: "box" }, form)));
-  email.focus();
+  (mode === "signup" ? nameIn : email).focus();
 }
 function friendlyAuthError(ex) {
   const c = (ex && ex.code) || "";
@@ -1618,7 +1704,7 @@ async function boot() {
       let snap = await ref.get();
       if (!snap.exists) {
         const isAdmin = (fbUser.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
-        await ref.set({ email: fbUser.email, name: fbUser.displayName || "", role: isAdmin ? "admin" : "pending", countries: isAdmin ? COUNTRIES.map(c => c.id) : [], allStores: true, stores: [], active: true, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await ref.set({ email: fbUser.email, name: fbUser.displayName || window.__pendingName || "", role: isAdmin ? "admin" : "pending", countries: isAdmin ? COUNTRIES.map(c => c.id) : [], allStores: true, stores: [], active: true, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         snap = await ref.get();
       }
       state.user = { uid: fbUser.uid, ...snap.data() };
