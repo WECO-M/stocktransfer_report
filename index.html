@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Store Transfer Receiving Report</title>
+<meta name="description" content="Daily stock transfer outlet receiving — SWIMS vs store reports in Lark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='10' width='52' height='44' rx='4' fill='%23171614'/%3E%3Cpath d='M14 24h36M14 34h36M14 44h22' stroke='%23f4f1ea' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   Store Transfer Receiving Report — clean, light, readable.
+   One sans-serif (Inter), white cards, soft borders, clear colour.
+   ============================================================ */
+:root {
+  color-scheme: light;
+  --paper:        #f4f6f9;   /* page background */
+  --surface:      #ffffff;   /* cards, rail */
+  --surface-2:    #f1f4f8;   /* hover / inset */
+  --ink:          #111827;   /* main text */
+  --ink-2:        #374151;   /* secondary text */
+  --muted:        #6b7280;   /* labels */
+  --rule:         #e5e7eb;   /* borders */
+  --rule-strong:  #cbd2dc;
+  --swims:        #2a78d6;   /* SWIMS (system) */
+  --lark:         #eb6834;   /* Lark (store report) */
+  --seq-1: #dbe9fb; --seq-2: #b7d3f6; --seq-3: #86b6ef; --seq-4: #5598e7; --seq-5: #2a78d6; --seq-6: #1c5cab;
+  --good:         #16a34a;
+  --warn:         #f59e0b;
+  --critical:     #dc2626;
+  --good-text:    #15803d;
+  --wash-good:    #dcfce7;
+  --wash-warn:    #fef3c7;
+  --wash-crit:    #fee2e2;
+  --wash-swims:   #e4effb;
+  --wash-lark:    #fdeae1;
+  --shadow:       0 1px 2px rgba(17,24,39,.05), 0 8px 24px rgba(17,24,39,.08);
+  --shadow-sm:    0 1px 2px rgba(17,24,39,.06);
+  --sans:  "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono:  "Inter", system-ui, sans-serif;
+  --radius: 12px;
+  --rail-w: 248px;
+}
+:root[data-theme="cream"] {
+  color-scheme: light;
+  --paper:        #efe9dc;   /* warm cream page background */
+  --surface:      #faf6ec;   /* cards */
+  --surface-2:    #f1ebdd;   /* hover / inset */
+  --ink:          #2a2419;
+  --ink-2:        #4a4235;
+  --muted:        #7a7060;
+  --rule:         #e0d7c3;
+  --rule-strong:  #c9bea4;
+  --wash-good:    #dcedd3;
+  --wash-warn:    #f6e8c0;
+  --wash-crit:    #f6dcd4;
+  --wash-swims:   #e2e9ef;
+  --wash-lark:    #f6e3d6;
+  --shadow:       0 1px 2px rgba(60,45,20,.06), 0 8px 24px rgba(60,45,20,.08);
+  --shadow-sm:    0 1px 2px rgba(60,45,20,.07);
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0f1115; --surface: #181b22; --surface-2: #21252e;
+  --ink: #f3f4f6; --ink-2: #d1d5db; --muted: #9aa3b2;
+  --rule: #2b303b; --rule-strong: #3d4351;
+  --swims: #3f8ae8; --lark: #ee7a4c;
+  --seq-1: #1c3a63; --seq-2: #1f4c88; --seq-3: #2460ad; --seq-4: #2f79d0; --seq-5: #5c9ce8; --seq-6: #95c0f2;
+  --good: #22c55e; --warn: #fbbf24; --critical: #ef4444; --good-text: #4ade80;
+  --wash-good: rgba(34,197,94,.18); --wash-warn: rgba(251,191,36,.2); --wash-crit: rgba(239,68,68,.2);
+  --wash-swims: rgba(63,138,232,.18); --wash-lark: rgba(238,122,76,.2);
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45); --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; min-height: 100%; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.5 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+a { color: var(--swims); }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+/* ---------- controls ---------- */
+.btn {
+  background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 8px;
+  padding: 7px 14px; color: var(--ink); font-weight: 500; line-height: 1.2; font-size: 13.5px;
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; box-shadow: var(--shadow-sm);
+}
+.btn:hover { background: var(--surface-2); }
+.btn.solid { background: var(--swims); color: #fff; border-color: var(--swims); }
+.btn.solid:hover { filter: brightness(1.08); }
+.btn.danger { color: var(--critical); border-color: var(--critical); }
+.btn.sm { padding: 4px 10px; font-size: 12.5px; }
+.btn.icon { padding: 6px 9px; }
+.btn:disabled { opacity: .45; cursor: default; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > span { font-size: 12.5px; color: var(--ink-2); font-weight: 500; }
+.field input, .field select, .field textarea, .input {
+  background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 8px;
+  padding: 8px 11px; color: var(--ink); width: 100%;
+}
+.field input:focus, .field select:focus, .field textarea:focus, .input:focus { outline: 2px solid var(--swims); outline-offset: 0; border-color: transparent; }
+.field textarea { min-height: 72px; resize: vertical; font-family: var(--sans); }
+.field .hint { font-size: 12px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--rule-strong); border-radius: 8px; padding: 2px; background: var(--surface); }
+.seg button { border: none; background: none; border-radius: 6px; padding: 5px 14px; color: var(--ink-2); font-weight: 500; font-size: 13px; }
+.seg button.on { background: var(--ink); color: #fff; }
+.switch { width: 36px; height: 20px; border-radius: 999px; background: var(--rule-strong); border: none; position: relative; padding: 0; flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.switch.on { background: var(--swims); }
+.switch.on::after { left: 18px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; border-radius: 6px; padding: 3px 9px;
+  font-size: 12.5px; font-weight: 500; border: 1px solid var(--rule); background: var(--surface); color: var(--ink-2);
+  white-space: nowrap;
+}
+.chip.crit { background: var(--wash-crit); border-color: transparent; color: #991b1b; }
+.chip.warn { background: var(--wash-warn); border-color: transparent; color: #92400e; }
+.chip.good { background: var(--wash-good); border-color: transparent; color: #166534; }
+:root[data-theme="dark"] .chip.crit { color: #fca5a5; } :root[data-theme="dark"] .chip.warn { color: #fde68a; } :root[data-theme="dark"] .chip.good { color: #86efac; }
+.chip.swims { background: var(--wash-swims); border-color: transparent; }
+.chip.lark { background: var(--wash-lark); border-color: transparent; }
+.mono { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: .01em; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+.muted { color: var(--muted); }
+.pos { color: var(--good-text); }
+.neg { color: var(--critical); }
+.eyebrow { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* ---------- frame: top bar + full-width content ---------- */
+#app { display: block; min-height: 100vh; }
+.topbar { position: sticky; top: 0; z-index: 30; background: #0f172a; color: #fff; display: flex; align-items: center; gap: 18px; padding: 0 28px; height: 58px; box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 4px 16px rgba(15,23,42,.25); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand .mark { width: 32px; height: 32px; border-radius: 8px; background: var(--swims); display: grid; place-items: center; flex: none; }
+.brand .mark svg { width: 18px; height: 18px; }
+.brand .t1 { font-size: 15px; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.brand .t2 { font-size: 11px; color: rgba(255,255,255,.6); margin-top: 2px; white-space: nowrap; }
+.tabs { display: flex; gap: 2px; margin-left: 14px; }
+.tabs button { background: none; border: none; color: rgba(255,255,255,.72); padding: 8px 14px; border-radius: 8px; font-weight: 500; font-size: 13.5px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.tabs button svg { width: 16px; height: 16px; }
+.tabs button:hover { background: rgba(255,255,255,.08); color: #fff; }
+.tabs button.on { background: rgba(255,255,255,.16); color: #fff; }
+.topbar .right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
+.topbar .seg { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.18); }
+.topbar .seg button { color: rgba(255,255,255,.75); }
+.topbar .seg button.on { background: #fff; color: #0f172a; }
+.userchip { display: flex; align-items: center; gap: 9px; font-size: 12.5px; }
+.userchip .av { width: 30px; height: 30px; border-radius: 50%; background: rgba(255,255,255,.16); color: #fff; display: grid; place-items: center; font-size: 11.5px; font-weight: 700; flex: none; }
+.userchip .who { line-height: 1.2; min-width: 0; }
+.userchip .who b { display: block; font-weight: 600; white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.userchip .who span { color: rgba(255,255,255,.6); font-size: 11.5px; }
+.userchip .out { background: none; border: none; color: rgba(255,255,255,.6); padding: 4px; display: inline-flex; }
+.userchip .out:hover { color: #fff; }
+.userchip .out svg { width: 16px; height: 16px; }
+
+/* day strip under the page title */
+.daystrip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px; margin: 0 0 6px; scrollbar-width: thin; }
+.daystrip button { flex: 1 0 88px; min-width: 88px; background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 8px 10px; text-align: left; color: var(--ink-2); display: grid; gap: 5px; box-shadow: var(--shadow-sm); }
+.daystrip button:hover { border-color: var(--rule-strong); }
+.daystrip button.on { border-color: var(--swims); background: var(--wash-swims); box-shadow: inset 0 0 0 1px var(--swims); }
+.daystrip .dw { font-size: 11.5px; color: var(--muted); font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+.daystrip button.on .dw { color: var(--swims); }
+.daystrip .n { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.daystrip .n.none { color: var(--muted); font-weight: 400; }
+.daystrip .bar { height: 5px; background: var(--rule); border-radius: 3px; overflow: hidden; position: relative; }
+.daystrip .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--swims); border-radius: 3px; }
+.daystrip .bar i.weekend { background: var(--rule-strong); }
+.daystrip .flag { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--critical); }
+
+main { padding: 22px 28px 60px; max-width: 1640px; margin: 0 auto; min-width: 0; }
+
+.masthead { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 4px 0 14px; }
+.masthead .date { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; margin: 2px 0 0; }
+.masthead .date em { font-style: normal; font-weight: 500; color: var(--ink-2); }
+.masthead .datenav { display: flex; gap: 6px; align-items: center; }
+.masthead .datenav input[type=date] { border: 1px solid var(--rule-strong); background: var(--surface); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+.masthead .meta { margin-left: auto; text-align: right; font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.masthead .meta .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: var(--good); vertical-align: 0; }
+.masthead .meta .dot.stale { background: var(--warn); }
+.masthead .meta .dot.off { background: var(--critical); }
+/* figures: KPI cards */
+.figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.fig { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 16px 18px 14px; min-width: 0; box-shadow: var(--shadow-sm); }
+.fig .lab { font-size: 13px; color: var(--ink-2); font-weight: 500; display: flex; align-items: center; gap: 7px; }
+.fig .lab .key { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.fig .val { font-size: 30px; font-weight: 700; letter-spacing: -.02em; line-height: 1.15; margin-top: 6px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.fig .val .unit { font-size: 13px; color: var(--muted); font-weight: 500; letter-spacing: 0; }
+.fig .sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.fig .spark { height: 28px; margin-top: 10px; }
+.fig .spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+/* sections as cards */
+.section { margin-top: 18px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 18px 20px 20px; box-shadow: var(--shadow-sm); }
+.section > header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.section > header h2 { font-size: 16px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
+.section > header .sub { color: var(--muted); font-size: 12.5px; }
+.section > header .tools { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.filterrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 10px 0 8px; }
+.filterrow .search { width: 220px; padding: 6px 12px; border-radius: 8px; }
+.filterrow .chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.filterrow .chips button { border: 1px solid transparent; background: none; border-radius: 8px; padding: 5px 11px; color: var(--ink-2); font-size: 13px; font-weight: 500; }
+.filterrow .chips button:hover { background: var(--surface-2); }
+.filterrow .chips button.on { background: var(--ink); color: #fff; }
+.filterrow label.tog { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); margin-left: 6px; }
+
+/* attention list */
+.attn { border-top: 1px solid var(--rule); }
+.attn .row { display: grid; grid-template-columns: 170px 1fr; gap: 14px; padding: 11px 8px; border-bottom: 1px solid var(--rule); align-items: start; cursor: pointer; border-radius: 6px; }
+.attn .row:hover { background: var(--surface-2); }
+.attn .store b { font-weight: 700; }
+.attn .store span { display: block; color: var(--muted); font-size: 12.5px; }
+.attn .why { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.attn .why .rem { color: var(--ink-2); font-size: 13px; }
+.allclear { padding: 14px 0; color: var(--ink-2); display: flex; align-items: center; gap: 10px; }
+
+/* ledger table */
+.tablewrap { overflow-x: auto; }
+table.ledger { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.ledger th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 10px 10px; border-bottom: 1px solid var(--rule-strong); white-space: nowrap; position: sticky; top: 0; background: var(--surface); z-index: 2; }
+table.ledger th.num, table.ledger td.num { text-align: right; }
+table.ledger td { padding: 9px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+table.ledger tr.grp td { padding: 16px 10px 6px; border-bottom: 1px solid var(--rule-strong); font-size: 13.5px; font-weight: 700; color: var(--ink); background: var(--surface); }
+table.ledger tr.grp td span { font-size: 12px; color: var(--muted); margin-left: 10px; font-weight: 500; }
+table.ledger tr.r { cursor: pointer; }
+table.ledger tr.r:hover td { background: var(--surface-2); }
+table.ledger tr.r.issue td:first-child { box-shadow: inset 3px 0 0 var(--critical); }
+table.ledger tr.r.warn td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+table.ledger .code { font-weight: 700; }
+table.ledger .nm { color: var(--muted); font-size: 12px; display: block; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+table.ledger .bar { display: inline-block; height: 8px; border-radius: 4px; vertical-align: middle; }
+table.ledger .bar.s { background: var(--swims); }
+table.ledger .bar.l { background: var(--lark); }
+table.ledger .cellbar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+table.ledger .cellbar .v { min-width: 44px; text-align: right; font-weight: 500; }
+table.ledger td.rem { color: var(--ink-2); max-width: 340px; }
+table.ledger td.rem .st { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); margin-right: 6px; }
+table.ledger td.rem i { font-style: normal; }
+table.ledger .open { white-space: nowrap; }
+table.ledger .open small { color: var(--muted); }
+table.ledger td.na { color: var(--rule-strong); }
+.delta { font-variant-numeric: tabular-nums; font-weight: 600; }
+.delta.zero { color: var(--muted); font-weight: 400; }
+.srcicons { display: inline-flex; gap: 4px; }
+.srcicons i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; background: var(--rule); }
+.srcicons i.on.s { background: var(--swims); }
+.srcicons i.on.l { background: var(--lark); }
+.legend { display: flex; gap: 14px; align-items: center; font-size: 12.5px; color: var(--ink-2); }
+.legend .k { display: inline-flex; align-items: center; gap: 6px; }
+.legend .k i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.empty { padding: 36px 0; text-align: center; color: var(--muted); }
+.empty .big { font-size: 16px; font-weight: 600; color: var(--ink-2); margin-bottom: 4px; }
+
+/* matrix (stores x days) */
+.matrix { border-collapse: separate; border-spacing: 2px; font-size: 12px; }
+.matrix th { font-weight: 500; color: var(--muted); font-size: 11px; padding: 2px 4px; text-align: center; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.matrix th.rowh { text-align: left; position: sticky; left: 0; background: var(--surface); z-index: 1; color: var(--ink); font-weight: 600; padding-right: 10px; font-size: 12.5px; }
+.matrix th.rowh span { color: var(--muted); font-weight: 400; margin-left: 6px; font-size: 11px; }
+.matrix th.wk { color: var(--rule-strong); }
+.matrix td { width: 26px; height: 24px; border-radius: 4px; background: var(--surface-2); position: relative; cursor: pointer; }
+.matrix td.wkend { background: transparent; border: 1px solid var(--rule); }
+.matrix td.q1 { background: var(--seq-1); } .matrix td.q2 { background: var(--seq-2); } .matrix td.q3 { background: var(--seq-3); }
+.matrix td.q4 { background: var(--seq-4); } .matrix td.q5 { background: var(--seq-5); } .matrix td.q6 { background: var(--seq-6); }
+.matrix td.mis::after { content: ""; position: absolute; right: 3px; top: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--critical); box-shadow: 0 0 0 2px var(--surface); }
+.matrix td.norep::after { content: ""; position: absolute; left: 50%; top: 50%; width: 10px; height: 2px; margin: -1px 0 0 -5px; background: var(--lark); }
+.matrix td:hover, .matrix td:focus-visible { outline: 2px solid var(--ink); outline-offset: -1px; }
+.matrix td.today { outline: 1px dashed var(--rule-strong); }
+.matrix tr.grp th { padding-top: 14px; font-size: 13px; font-weight: 700; color: var(--ink); text-align: left; }
+.scalebar { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.scalebar i { width: 18px; height: 10px; border-radius: 2px; display: inline-block; }
+
+/* drawer */
+.scrim { position: fixed; inset: 0; background: rgba(17,24,39,.4); z-index: 50; display: none; }
+.scrim.open { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(560px, 100vw); background: var(--surface);
+  border-left: 1px solid var(--rule); box-shadow: var(--shadow); z-index: 51; transform: translateX(100%);
+  transition: transform .2s ease; overflow-y: auto; padding: 26px 28px 40px;
+}
+.drawer.open { transform: none; }
+.drawer h3 { font-size: 20px; font-weight: 700; margin: 4px 0 0; letter-spacing: -.01em; }
+.drawer .dsub { color: var(--muted); font-size: 12.5px; margin: 6px 0 18px; }
+.drawer .close { position: absolute; top: 18px; right: 18px; background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 50%; width: 32px; height: 32px; color: var(--ink-2); }
+.drawer .close:hover { background: var(--surface-2); }
+.drawer h4 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 22px 0 8px; }
+.drawer .form { display: grid; gap: 14px; }
+.drawer .form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.drawer .actions { display: flex; gap: 8px; margin-top: 20px; align-items: center; flex-wrap: wrap; }
+.drawer .err { color: var(--critical); font-size: 13px; }
+.drawer .ok { color: var(--good-text); font-size: 13px; }
+.txnlist { border-top: 1px solid var(--rule); }
+.txnlist .t { display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+.txnlist .t .no { font-weight: 600; }
+.txnlist .t .nm { color: var(--muted); font-size: 12px; grid-column: 1; }
+.txnlist .t .q { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.txnlist .t .q small { color: var(--muted); font-weight: 400; }
+.txnlist .t .st { grid-column: 2; text-align: right; font-size: 11.5px; color: var(--muted); }
+.hist { display: grid; grid-template-columns: 50px 1fr 1fr; gap: 6px 10px; align-items: center; font-size: 12px; }
+.hist .d { color: var(--muted); font-variant-numeric: tabular-nums; }
+.hist .b { height: 10px; border-radius: 4px; min-width: 2px; }
+.hist .b.s { background: var(--swims); } .hist .b.l { background: var(--lark); }
+.hist .b.none { background: var(--rule); width: 2px !important; }
+.hist .bw { display: flex; align-items: center; gap: 6px; }
+.hist .bw span { color: var(--ink-2); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.hist .hd { color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+
+/* lark log */
+.larkgrid { display: grid; grid-template-columns: minmax(300px, 380px) 1fr; gap: 24px; align-items: start; background: none; border: none; box-shadow: none; padding: 0; }
+.panel { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 18px 20px 20px; box-shadow: var(--shadow-sm); }
+.panel h3 { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+.panel .form { display: grid; gap: 12px; }
+.panel .form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pastebox textarea { min-height: 130px; font-size: 13px; }
+.preview { border: 1px dashed var(--rule-strong); border-radius: 8px; padding: 10px 12px; font-size: 12.5px; margin-top: 8px; display: grid; gap: 4px; }
+.preview .pr { display: grid; grid-template-columns: 60px 60px 1fr; gap: 8px; align-items: baseline; }
+.preview .pr .c { font-weight: 700; }
+.preview .pr .p { text-align: right; font-variant-numeric: tabular-nums; }
+.preview .pr.bad { color: var(--critical); }
+.statuspick { display: flex; gap: 4px; flex-wrap: wrap; }
+.statuspick button { border: 1px solid var(--rule-strong); background: var(--surface); border-radius: 8px; padding: 5px 11px; font-size: 13px; color: var(--ink-2); }
+.statuspick button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.sourcetag { font-size: 12px; color: var(--muted); }
+
+/* settings */
+.settings { display: grid; grid-template-columns: 190px 1fr; gap: 24px; align-items: start; background: none; border: none; box-shadow: none; padding: 0; }
+.settings .snav { display: flex; flex-direction: column; gap: 2px; position: sticky; top: 24px; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 8px; }
+.settings .snav button { background: none; border: none; text-align: left; padding: 8px 10px; border-radius: 8px; color: var(--ink-2); font-weight: 500; }
+.settings .snav button.on { background: var(--wash-swims); color: var(--swims); }
+.settings .snav button:hover { color: var(--ink); }
+.adm .section { margin-top: 0; }
+.adm .section + .section { margin-top: 18px; }
+.adm table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.adm th { text-align: left; font-weight: 600; font-size: 12px; color: var(--muted); padding: 8px 10px; border-bottom: 1px solid var(--rule-strong); }
+.adm td { padding: 10px 10px; border-bottom: 1px solid var(--rule); vertical-align: middle; }
+.adm tr:hover td { background: var(--surface-2); }
+.adm .rolepill { display: inline-block; border-radius: 6px; padding: 2px 9px; font-size: 12.5px; font-weight: 500; border: 1px solid var(--rule-strong); }
+.adm .rolepill.admin { background: var(--ink); color: #fff; border-color: var(--ink); }
+.adm .rolepill.pending { background: var(--wash-warn); border-color: transparent; }
+.adm .rolepill.off { opacity: .55; text-decoration: line-through; }
+.adm .acc { color: var(--muted); font-size: 12.5px; }
+.adm .perm { display: inline-block; width: 16px; text-align: center; color: var(--good-text); font-weight: 700; }
+.feedcard { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.feedcard > div { border: 1px solid var(--rule); border-radius: 10px; padding: 12px 14px; }
+.feedcard b { display: block; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.feedcard .ln { display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; padding: 5px 0; border-bottom: 1px solid var(--rule); }
+.feedcard .ln span:last-child { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: 170px 1fr; gap: 8px 14px; font-size: 13px; }
+.kv dt { color: var(--muted); } .kv dd { margin: 0; }
+.notice { border: 1px solid #fcd34d; background: var(--wash-warn); color: var(--ink); padding: 10px 14px; border-radius: 10px; font-size: 13px; margin: 14px 0 0; }
+.notice.crit { border-color: #fca5a5; background: var(--wash-crit); }
+.notice.info { border-color: #93c5fd; background: var(--wash-swims); }
+:root[data-theme="dark"] .notice { border-color: transparent; }
+
+/* auth */
+.auth { min-height: 100vh; display: grid; grid-template-columns: 1.1fr 1fr; }
+.auth .side { background: #111827; color: #f9fafb; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; }
+.auth .side h1 { font-size: clamp(32px, 4.5vw, 52px); font-weight: 700; letter-spacing: -.02em; line-height: 1.1; margin: 0; max-width: 14ch; }
+.auth .side h1 em { font-style: normal; color: #93c5fd; }
+.auth .side p { color: rgba(249,250,251,.75); max-width: 42ch; font-size: 15px; }
+.auth .side .ruled { border-top: 1px solid rgba(249,250,251,.2); padding-top: 14px; font-size: 12.5px; color: rgba(249,250,251,.6); display: flex; gap: 20px; }
+.auth .box { display: grid; place-items: center; padding: 40px 24px; background: var(--surface); }
+.auth .box form { width: min(360px, 100%); display: grid; gap: 14px; }
+.auth .box h2 { font-size: 24px; font-weight: 700; margin: 0 0 2px; }
+.auth .box .sub { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.auth .box .links { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); }
+.auth .box .err { color: var(--critical); font-size: 13px; }
+.auth .box .ok { color: var(--good-text); font-size: 13px; }
+.gate { min-height: 100vh; display: grid; place-items: center; padding: 24px; text-align: center; }
+.gate .inner { max-width: 440px; }
+.gate h2 { font-size: 24px; font-weight: 700; margin: 0 0 8px; }
+.gate p { color: var(--ink-2); }
+
+/* tooltip */
+#tip { position: fixed; z-index: 90; pointer-events: none; background: #111827; color: #f9fafb; font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; max-width: 280px; display: none; box-shadow: var(--shadow); }
+#tip b { font-weight: 600; font-size: 13px; }
+#tip .k { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #111827; color: #f9fafb; padding: 9px 16px; border-radius: 8px; font-size: 13px; z-index: 95; display: none; box-shadow: var(--shadow); }
+.loading { padding: 80px 0; text-align: center; color: var(--muted); font-size: 15px; }
+.refreshing main { opacity: .6; transition: opacity .2s; }
+.demo-band { background: var(--wash-warn); color: var(--ink); font-size: 12.5px; padding: 7px 32px; display: flex; gap: 12px; align-items: center; }
+.demo-band b { font-weight: 600; }
+.demo-band a { color: var(--ink); }
+
+/* mobile */
+@media (max-width: 900px) {
+  .topbar { height: auto; flex-wrap: wrap; padding: 10px 14px; gap: 8px; }
+  .brand .t2 { display: none; }
+  .tabs { order: 3; width: 100%; margin-left: 0; overflow-x: auto; }
+  .tabs button { padding: 7px 10px; }
+  .userchip .who { display: none; }
+  main { padding: 14px 12px 50px; }
+  .masthead .date { font-size: 22px; }
+  .daystrip button { flex: 0 0 80px; min-width: 80px; }
+  .figures { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fig .val { font-size: 24px; }
+  .section { padding: 14px 14px 16px; }
+  .larkgrid, .settings { grid-template-columns: 1fr; }
+  .settings .snav { position: static; flex-direction: row; flex-wrap: wrap; }
+  .auth { grid-template-columns: 1fr; }
+  .auth .side { padding: 28px 20px; }
+  .demo-band { padding: 6px 14px; }
+  .attn .row { grid-template-columns: 1fr; gap: 4px; }
+}
+@media print {
+  .topbar, .daystrip, .filterrow, .demo-band { display: none !important; }
+  body { background: #fff; }
+}
+/* plain-language daily page */
+.summary { background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius); padding: 18px 22px; margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+.summary .big { font-size: 19px; line-height: 1.5; font-weight: 400; color: var(--ink-2); }
+.summary .big b { color: var(--ink); font-weight: 700; }
+.summary .big b.bad { color: var(--critical); }
+.summary .big b.ok { color: var(--good-text); }
+.figures.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.fig.alert { border-color: #fca5a5; background: #fff7f7; }
+:root[data-theme="cream"] .fig.alert { background: #f8e9e3; border-color: #e4a9a0; }
+:root[data-theme="dark"] .fig.alert { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.4); }
+.tile-note { font-size: 12.5px; color: var(--muted); }
+.status { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 13.5px; }
+.status i { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; flex: none; }
+.status.good i { background: var(--wash-good); color: #166534; }
+.status.crit i { background: var(--wash-crit); color: #991b1b; }
+.status.warn i { background: var(--wash-warn); color: #92400e; }
+.status.info i, .status.muted i { background: var(--surface-2); color: var(--muted); }
+.status.good { color: #166534; } .status.crit { color: #991b1b; } .status.warn { color: #92400e; }
+.status.info { color: var(--ink-2); } .status.muted { color: var(--muted); font-weight: 500; }
+:root[data-theme="dark"] .status.good { color: #86efac; } :root[data-theme="dark"] .status.crit { color: #fca5a5; } :root[data-theme="dark"] .status.warn { color: #fde68a; }
+:root[data-theme="dark"] .status.good i { color: #86efac; } :root[data-theme="dark"] .status.crit i { color: #fca5a5; } :root[data-theme="dark"] .status.warn i { color: #fde68a; }
+.status .det { color: var(--muted); font-weight: 400; }
+.followup { border-top: 1px solid var(--rule); }
+.followup .row { display: grid; grid-template-columns: 200px 1fr; gap: 4px 16px; padding: 12px 8px; border-bottom: 1px solid var(--rule); cursor: pointer; border-radius: 6px; align-items: start; }
+.followup .row:hover { background: var(--surface-2); }
+.followup .store b { font-weight: 700; font-size: 14.5px; }
+.followup .store span { display: block; color: var(--muted); font-size: 12.5px; }
+.followup .det { color: var(--ink-2); font-size: 13.5px; margin-top: 3px; }
+.followup .rem { color: var(--ink-2); font-size: 13.5px; margin-top: 3px; }
+.followup .rem b { font-weight: 600; color: var(--ink); }
+details.howto { margin-top: 16px; font-size: 13.5px; color: var(--ink-2); border-top: 1px solid var(--rule); padding-top: 12px; }
+details.howto summary { cursor: pointer; font-weight: 600; color: var(--swims); }
+details.howto ul { margin: 10px 0 0; padding-left: 18px; }
+details.howto li { margin: 5px 0; }
+table.ledger td.rem { color: var(--ink-2); max-width: 380px; white-space: normal; }
+@media (max-width: 900px) { .figures.three { grid-template-columns: 1fr; } .followup .row { grid-template-columns: 1fr; } .summary .big { font-size: 16.5px; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="tip" role="status"></div>
+<div id="toast" role="status"></div>
+<script>
+/* ============================== CONFIG ============================== */
+// Sign-in + database (Firebase). Leave null to run in DEMO mode: sample numbers, no sign-in,
+// everything editable but nothing saved. See FIREBASE-SETUP.md to go live.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCFGbT9B0NUbov74Vez0MI9osf4hLqfF_U",
+  authDomain: "receivingledger.firebaseapp.com",
+  projectId: "receivingledger",
+  storageBucket: "receivingledger.firebasestorage.app",
+  messagingSenderId: "509975656151",
+  appId: "1:509975656151:web:11a72e91f27d596035a292"
+};
+// The first account that signs up with this email becomes the Administrator.
+const ADMIN_EMAIL = "ng_thianwei@iora.com.my";
+const COUNTRIES = [{ id: "SG", name: "Singapore" }, { id: "MY", name: "Malaysia" }];
+const BRAND_ORDER = ["iORA", "SANS", "TRT", "MONOLOQ", "JUBA"];
+const BRAND_LABEL = { iORA: "iORA", SANS: "SANS & SANS", TRT: "The Restyle Trait", MONOLOQ: "MONOLOQ", JUBA: "JUBA" };
+const RAIL_DAYS = 14;          // days listed in the left rail
+const MATRIX_DAYS = 28;        // days in the stores x days matrix
+const FEED_STALE_HOURS = 30;   // SWIMS feed older than this = amber dot
+const TZ = "Asia/Singapore";
+const DEFAULT_SETTINGS = { tolerance: 0, openDays: 2, requireDailyReport: false, allowSelfSignup: true };
+const STATUS_LABEL = { received: "Received OK", none: "No delivery", partial: "Short / damaged", issue: "Problem reported" };
+
+// Store master seed. Firestore `stores` overrides this once the Administrator edits a store.
+// c = code (SWIMS to_location), n = name, k = country, b = brand group, a = active
+const STORE_SEED = [
+  ["A3S","iORA 313@Somerset","SG","iORA"],["ABJ","iORA Bugis Junction","SG","iORA"],["ABM","iORA Bedok Mall","SG","iORA"],
+  ["ACL","iORA City Link","SG","iORA"],["ACQ","Juba Clarke Quay","SG","iORA"],["ACS","iORA City Square","SG","iORA"],
+  ["AHF","iORA HarbourFront","SG","iORA"],["AHM","iORA Hillion Mall","SG","iORA"],["AJ8","iORA Junction 8","SG","iORA"],
+  ["AJE","iORA JEM","SG","iORA"],["AKP","iORA Compass One","SG","iORA"],["AMS","Lalu Marina Square","SG","iORA"],
+  ["AOA","iORA Oasis Terraces","SG","iORA"],["APR","Lalu Pasir Ris","SG","iORA"],["AS2","Lalu Square 2","SG","iORA"],
+  ["ASG","iORA (ASG)","SG","iORA",false],["AST","iORA Suntec City","SG","iORA"],["AWA","iORA Wisma Atria","SG","iORA"],
+  ["AWG","iORA (AWG)","SG","iORA"],["AWM","iORA West Mall","SG","iORA"],
+  ["J3S","JUBA 313@Somerset","SG","JUBA",false],["JCQ","JUBA Clarke Quay","SG","JUBA",false],["JWA","JUBA Wisma Atria","SG","JUBA",false],["JTK","JUBA Takashimaya","SG","JUBA",false],
+  ["MCQ","MONOLOQ Clarke Quay","SG","MONOLOQ"],["MHV","MONOLOQ (MHV)","SG","MONOLOQ"],["MMS","MONOLOQ Marina Square","SG","MONOLOQ"],
+  ["MTK","MONOLOQ Takashimaya","SG","MONOLOQ"],["MWA","MONOLOQ Wisma Atria","SG","MONOLOQ"],
+  ["SBJ","SANS Bugis Junction","SG","SANS"],["SJ8","SANS Junction 8","SG","SANS"],["SJE","SANS JEM","SG","SANS"],
+  ["SMS","SANS Marina Square","SG","SANS"],["SPQ","SANS Paya Lebar Quarter","SG","SANS",false],["SS2","SANS Square 2","SG","SANS"],
+  ["SST","SANS Suntec City","SG","SANS"],["STK","SANS Takashimaya","SG","SANS"],["SVC","SANS VivoCity","SG","SANS",false],["SWA","SANS Wisma Atria","SG","SANS"],
+  ["T-ACQ","TRT @ Clarke Quay","SG","TRT"],["T-AWA","TRT @ Wisma Atria","SG","TRT"],["TBJ","TRT Bugis Junction","SG","TRT"],
+  ["TCQ","TRT Clarke Quay","SG","TRT"],["THF","TRT HarbourFront Centre","SG","TRT"],["TJE","TRT JEM","SG","TRT"],
+  ["TMS","TRT Marina Square","SG","TRT"],["TPQ","TRT Paya Lebar Quarter","SG","TRT"],["TT1","TRT Tampines 1","SG","TRT"],
+  ["TTK","TRT Takashimaya","SG","TRT"],["TWL","TRT Wheelock Place","SG","TRT"],
+  ["A1U","iORA One Utama","MY","iORA"],["ACA","iORA Sunway Carnival","MY","iORA"],["ACM","iORA IOI City Mall","MY","iORA"],
+  ["AGP","iORA Gurney Plaza","MY","iORA"],["AKL","iORA KLCC","MY","iORA"],["AMM","iORA Mid Valley Megamall","MY","iORA"],
+  ["AMV","iORA The Gardens Isetan","MY","iORA"],["AQB","iORA Queensbay","MY","iORA"],["ARX","iORA TRX","MY","iORA"],
+  ["ASA","iORA Sky Avenue","MY","iORA"],["ASE","iORA Setia City Mall","MY","iORA"],["ASK","iORA Mid Valley Southkey","MY","iORA"],
+  ["ASW","iORA Sunway Pyramid","MY","iORA"],["ATC","iORA Tebrau City","MY","iORA"],["AVA","iORA (AVA)","MY","iORA",false],["AVE","iORA Velocity","MY","iORA"],
+  ["M1U","MONOLOQ One Utama","MY","MONOLOQ"],["MMM","MONOLOQ Mid Valley","MY","MONOLOQ"],["MRX","MONOLOQ TRX","MY","MONOLOQ"],["MSK","MONOLOQ Southkey","MY","MONOLOQ"],
+  ["S1U","SANS 1 Utama","MY","SANS"],["SGP","SANS Gurney Plaza","MY","SANS"],["SKL","SANS KLCC","MY","SANS"],
+  ["SMM","SANS Mid Valley Megamall","MY","SANS"],["SMV","SANS (SMV)","MY","SANS"],["SSK","SANS Mid Valley Southkey","MY","SANS"],
+  ["T1U","TRT One Utama","MY","TRT"],["TGP","TRT Gurney Plaza","MY","TRT"],["TMM","TRT Mid Valley Megamall","MY","TRT"],
+  ["TMV","TRT The Gardens","MY","TRT"],["TRX","TRT The Exchange TRX","MY","TRT"],["TSE","TRT Setia City Mall","MY","TRT",false],
+  ["TSK","TRT Mid Valley Southkey","MY","TRT"],["TTC","TRT Tebrau City","MY","TRT"],["TVA","TRT (TVA)","MY","TRT",false],
+];
+
+/* ============================== STATE ============================== */
+const state = {
+  view: "day",                                   // day | stores | lark | settings
+  settingsTab: "users",
+  country: localStorage.getItem("rl.country") || "SG",
+  date: null,                                    // YYYY-MM-DD, set at boot
+  stores: {},                                    // code -> {code,name,country,brand,active}
+  feed: {},                                      // country -> parsed SWIMS feed
+  lark: {},                                      // country -> { date -> { code -> report } }
+  larkLoaded: {},                                // country -> {from,to} window already loaded
+  users: [], roles: {},
+  settings: { ...DEFAULT_SETTINGS },
+  filters: { brand: "all", issues: false, q: "" },
+  user: null,                                    // {uid,email,name,role,countries,stores,allStores,active,locked}
+  loading: true, error: null,
+};
+const BUILTIN_ROLES = {
+  admin:  { name: "Administrator", builtin: true, perms: { view: true, logLark: true, manageStores: true, manageUsers: true } },
+  ops:    { name: "Operations",    builtin: true, perms: { view: true, logLark: true, manageStores: false, manageUsers: false } },
+  viewer: { name: "Viewer",        builtin: true, perms: { view: true, logLark: false, manageStores: false, manageUsers: false } },
+};
+const PERM_LABEL = { view: "View report", logLark: "Log Lark reports", manageStores: "Manage stores", manageUsers: "Manage users & roles" };
+
+/* ============================== UTILS ============================== */
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(el.style, v);
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "html") el.innerHTML = v;      // only ever called with our own markup, never data
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat(Infinity)) {
+    if (kid == null || kid === false) continue;
+    el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return el;
+}
+function svg(tag, attrs, ...kids) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  if (attrs) for (const [k, v] of Object.entries(attrs)) if (v != null) el.setAttribute(k, v);
+  for (const kid of kids.flat()) if (kid) el.append(kid);
+  return el;
+}
+const fmt = n => (n == null || isNaN(n)) ? "–" : Math.round(n).toLocaleString("en-SG");
+const pad2 = n => String(n).padStart(2, "0");
+function todayStr() { return new Date().toLocaleDateString("en-CA", { timeZone: TZ }); }
+function dateFrom(s) { const [y, m, d] = s.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d)); }
+function dateStr(d) { return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate()); }
+function addDays(s, n) { const d = dateFrom(s); d.setUTCDate(d.getUTCDate() + n); return dateStr(d); }
+function daysBetween(a, b) { return Math.round((dateFrom(b) - dateFrom(a)) / 86400000); }
+function dow(s) { return dateFrom(s).getUTCDay(); }                // 0 = Sunday
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DOWL = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONL = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+function dShort(s) { const d = dateFrom(s); return d.getUTCDate() + " " + MON[d.getUTCMonth()]; }
+function dLong(s) { const d = dateFrom(s); return DOWL[d.getUTCDay()] + ", " + d.getUTCDate() + " " + MONL[d.getUTCMonth()] + " " + d.getUTCFullYear(); }
+function tsFmt(t) {
+  if (!t) return "–";
+  const d = t instanceof Date ? t : (t.toDate ? t.toDate() : new Date(t));
+  return d.toLocaleString("en-GB", { timeZone: TZ, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+function hoursAgo(t) { if (!t) return Infinity; const d = t instanceof Date ? t : (t.toDate ? t.toDate() : new Date(t)); return (Date.now() - d.getTime()) / 36e5; }
+function storeOf(code) { return state.stores[code] || { code, name: code, country: "?", brand: "iORA", active: true, unknown: true }; }
+function brandOf(code) { return storeOf(code).brand || "iORA"; }
+// A store counts on a given day if it is tracked (active) and the day falls inside its opened/closed dates.
+function storeOpenOn(s, date) {
+  if (!s || s.active === false) return false;
+  if (s.openedOn && date && date < s.openedOn) return false;
+  if (s.closedOn && date && date > s.closedOn) return false;
+  return true;
+}
+function activeStores(country, date) {
+  return Object.values(state.stores).filter(s => s.country === country && storeOpenOn(s, date || state.date) && canSeeStore(s.code))
+    .sort((a, b) => BRAND_ORDER.indexOf(a.brand) - BRAND_ORDER.indexOf(b.brand) || a.code.localeCompare(b.code));
+}
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = "none", 2600); }
+function showTip(e, nodes) {
+  const t = document.getElementById("tip"); t.replaceChildren(...nodes.flat(Infinity).filter(Boolean)); t.style.display = "block";
+  const x = Math.min(e.clientX + 14, window.innerWidth - t.offsetWidth - 10), y = Math.min(e.clientY + 14, window.innerHeight - t.offsetHeight - 10);
+  t.style.left = x + "px"; t.style.top = y + "px";
+}
+function hideTip() { document.getElementById("tip").style.display = "none"; }
+function tipAttach(el, build) {
+  el.addEventListener("pointermove", e => showTip(e, build()));
+  el.addEventListener("pointerleave", hideTip);
+  el.addEventListener("focus", e => { const r = el.getBoundingClientRect(); showTip({ clientX: r.left, clientY: r.bottom }, build()); });
+  el.addEventListener("blur", hideTip);
+}
+function loadScript(src) { return new Promise((ok, bad) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = () => bad(new Error("Failed to load " + src)); document.head.append(s); }); }
+function applyTheme() { const t = localStorage.getItem("rl.theme"); document.documentElement.dataset.theme = ["cream", "light", "dark"].includes(t) ? t : "cream"; }
+
+/* ---- permissions ---- */
+function roleInfo(id) { if (id === "admin") return BUILTIN_ROLES.admin; return state.roles[id] || BUILTIN_ROLES[id] || null; }
+function roleName(id) { const r = roleInfo(id); return r ? r.name : (!id || id === "pending" ? "Pending approval" : id); }
+function perm(p) {
+  if (!FIREBASE_CONFIG) return true;
+  const u = state.user; if (!u) return false;
+  if (u.role === "admin") return true;
+  const r = roleInfo(u.role); if (!r || r.active === false || u.role === "pending") return false;
+  return !!r.perms[p];
+}
+function canSeeCountry(c) { if (!FIREBASE_CONFIG || !state.user || state.user.role === "admin") return true; return (state.user.countries || []).includes(c); }
+function canSeeStore(code) {
+  if (!FIREBASE_CONFIG || !state.user || state.user.role === "admin") return true;
+  if (state.user.allStores !== false) return true;
+  return (state.user.stores || []).includes(code);
+}
+function visibleCountries() { return COUNTRIES.filter(c => canSeeCountry(c.id)); }
+
+/* ============================== RECONCILIATION ============================== */
+// Transfers open "as of" a day: still-open ones dispatched by then, plus ones received only later.
+function txnIndex(country) {
+  const f = state.feed[country]; if (!f) return [];
+  if (f._idx) return f._idx;
+  const idx = [];
+  for (const [d, stores] of Object.entries(f.days)) for (const [c, s] of Object.entries(stores)) for (const t of s.t)
+    if (t.s === "Received" && t.td) idx.push({ c, n: t.n, w: t.w, d: t.d, q: t.q, r: 0, s: "In transit", td: t.td, rd: d });
+  return (f._idx = idx);
+}
+function openAsOf(country, date, code) {
+  const f = state.feed[country]; if (!f) return [];
+  const now = f.open.filter(o => o.c === code && o.td <= date);
+  const later = txnIndex(country).filter(o => o.c === code && o.td <= date && o.rd > date);
+  return now.concat(later);
+}
+// How much of a day SWIMS has loaded: "full" (BigQuery loaded after that day ended), "partial"
+// (loaded during that day), "none" (not loaded yet / no feed). Comparisons are only made on full days.
+function swimsCoverage(country, date) {
+  const f = state.feed[country]; if (!f) return "none";
+  const loadDay = f.bqLoadedAt ? new Date(f.bqLoadedAt).toLocaleDateString("en-CA", { timeZone: TZ }) : f.to;
+  if (date < loadDay) return "full";
+  if (date === loadDay) return "partial";
+  return "none";
+}
+// One record per store for a given day, joining SWIMS (feed) and Lark (reports).
+function dayRecord(country, date, code) {
+  const feed = state.feed[country];
+  const cov = swimsCoverage(country, date);
+  const sw = feed && feed.days[date] && feed.days[date][code];
+  const lk = state.lark[country] && state.lark[country][date] && state.lark[country][date][code];
+  const open = openAsOf(country, date, code);
+  const st = storeOf(code);
+  const rec = { code, store: st, swims: sw ? sw.p : (cov === "full" ? null : undefined), txns: sw ? sw.t : [], lark: lk || null, open, flags: [], coverage: cov };
+  const tol = state.settings.tolerance || 0;
+  const over = rec.txns.filter(t => t.r > t.q);
+  if (over.length) rec.flags.push({ k: "over", cls: "warn", text: "System shows more received than was sent (" + over.map(t => "+" + (t.r - t.q)).join(", ") + ")" });
+  if (cov === "full" && lk && sw && lk.pcs != null && Math.abs(lk.pcs - sw.p) > tol) {
+    const dd = lk.pcs - sw.p;
+    rec.flags.push({ k: "mismatch", cls: "crit", text: "Numbers don't match: store said " + fmt(lk.pcs) + ", system shows " + fmt(sw.p) + " (" + (dd > 0 ? "+" : "") + fmt(dd) + ")" });
+  }
+  if (cov === "full" && lk && lk.pcs > 0 && !sw) rec.flags.push({ k: "larkonly", cls: "warn", text: "Store says it received " + fmt(lk.pcs) + " pcs, but nothing was scanned in the system" });
+  // "Not reported" only once store reports exist for this country at all (rollout period stays quiet)
+  const la = larkActive(country);
+  const isToday = date === todayStr();
+  if (la && !lk && sw && sw.p > 0) rec.flags.push({ k: "norep", cls: "crit", text: isToday ? "Store hasn't sent today's report" : "Store didn't send a report" });
+  if (la && !lk && !sw && cov === "full" && state.settings.requireDailyReport && dow(date) !== 0) rec.flags.push({ k: "norep", cls: "warn", text: "No daily report from the store" });
+  if (lk && (lk.status === "issue" || lk.status === "partial")) rec.flags.push({ k: "issue", cls: "crit", text: lk.status === "partial" ? "Store reported short or damaged stock" : "Store reported a problem" });
+  const old = cov === "none" ? [] : open.filter(o => daysBetween(o.td, date) >= (state.settings.openDays || 2));
+  const oldestDays = old.length ? Math.max(...old.map(o => daysBetween(o.td, date))) : 0;
+  const oldPcs = old.reduce((a, o) => a + Math.max(0, o.q - (o.r || 0)), 0);
+  if (old.length) rec.flags.push({ k: "open", cls: "warn", text: "Stock sent " + oldestDays + " days ago not received yet (" + fmt(oldPcs) + " pcs" + (old.length > 1 ? ", " + old.length + " deliveries" : "") + ")" });
+  rec.severity = rec.flags.some(f => f.cls === "crit") ? 2 : rec.flags.length ? 1 : 0;
+  // One plain-language status per store (the most important thing first)
+  const f = k => rec.flags.find(x => x.k === k);
+  if (cov === "none" && !lk) rec.status = { cls: "muted", icon: "·", label: "System data not loaded yet", detail: "" };
+  else if (f("mismatch")) rec.status = { cls: "crit", icon: "✕", label: "Numbers don't match", detail: "Store said " + fmt(lk.pcs) + " pcs, system shows " + fmt(sw.p) };
+  else if (f("issue")) rec.status = { cls: "crit", icon: "!", label: lk.status === "partial" ? "Store reported short or damaged stock" : "Store reported a problem", detail: lk.pcs != null ? "Store said " + fmt(lk.pcs) + " pcs" + (sw ? ", system shows " + fmt(sw.p) : "") : "" };
+  else if (f("larkonly")) rec.status = { cls: "warn", icon: "!", label: "Store says received, nothing in the system", detail: "Store said " + fmt(lk.pcs) + " pcs, but nothing was scanned in" };
+  else if (f("norep")) rec.status = { cls: "crit", icon: "?", label: isToday ? "Store hasn't sent today's report" : "Store didn't send a report", detail: sw ? "System shows " + fmt(sw.p) + " pcs received" : "" };
+  else if (f("open")) rec.status = { cls: "warn", icon: "⏱", label: "Stock sent " + oldestDays + " days ago, not received yet", detail: fmt(oldPcs) + " pcs on the way" + (old.length > 1 ? " in " + old.length + " deliveries" : "") };
+  else if (f("over")) rec.status = { cls: "warn", icon: "!", label: "System shows more than was sent", detail: "Check for a double scan" };
+  else if (lk && lk.status === "none") rec.status = { cls: "info", icon: "–", label: "No delivery (store confirmed)", detail: "" };
+  else if (lk && sw) rec.status = { cls: "good", icon: "✓", label: "All good", detail: "Store and system agree" };
+  else if (lk) rec.status = { cls: "good", icon: "✓", label: "Store reported " + (lk.pcs == null ? "" : fmt(lk.pcs) + " pcs"), detail: cov === "full" ? "" : "waiting for system data" };
+  else if (sw && sw.p > 0) rec.status = { cls: "info", icon: "·", label: "Received, no store report yet", detail: "" };
+  else rec.status = { cls: "muted", icon: "·", label: "No delivery", detail: "" };
+  return rec;
+}
+function dayRecords(country, date) {
+  const seen = new Set();
+  const feed = state.feed[country];
+  const codes = activeStores(country, date).map(s => s.code);
+  if (feed && feed.days[date]) for (const c of Object.keys(feed.days[date])) if (!codes.includes(c) && canSeeStore(c)) codes.push(c);
+  if (state.lark[country] && state.lark[country][date]) for (const c of Object.keys(state.lark[country][date])) if (!codes.includes(c) && canSeeStore(c)) codes.push(c);
+  return codes.filter(c => !seen.has(c) && seen.add(c)).map(c => dayRecord(country, date, c));
+}
+function dayTotals(country, date) {
+  const recs = dayRecords(country, date);
+  const t = { swims: 0, lark: 0, reported: 0, stores: recs.filter(r => storeOpenOn(r.store, date)).length, issues: 0, warns: 0, openN: 0, openPcs: 0, txns: 0 };
+  const openSet = new Set();
+  for (const r of recs) {
+    t.swims += r.swims || 0; t.txns += r.txns.length;
+    if (r.lark) { t.reported++; t.lark += r.lark.pcs || 0; }
+    if (r.severity === 2) t.issues++; else if (r.severity === 1) t.warns++;
+    for (const o of r.open) if (!openSet.has(o.n + o.c)) { openSet.add(o.n + o.c); t.openN++; t.openPcs += Math.max(0, o.q - (o.r || 0)); }
+  }
+  return t;
+}
+function larkActive(country) { const l = state.lark[country]; return !!l && Object.values(l).some(d => Object.keys(d).length); }
+function swimsDayTotal(country, date) { const f = state.feed[country]; if (!f || !f.days[date]) return 0; return Object.values(f.days[date]).reduce((a, s) => a + s.p, 0); }
+function larkDayTotal(country, date) { const l = state.lark[country] && state.lark[country][date]; if (!l) return 0; return Object.values(l).reduce((a, r) => a + (r.pcs || 0), 0); }
+
+/* ============================== LARK MESSAGE PARSER ============================== */
+// Understands the usual ways stores write the daily line, e.g.
+//   "ABJ 120pcs received"  ·  "TJE - no delivery today"  ·  "SMS: 85 pcs, 2 cartons short, STO-TF-26005162"
+//   "AMM 没有收货"  ·  "ACL received 64 pcs (1 carton still with courier)"
+const NONE_WORDS = /\b(no\s+(delivery|stock|goods|transfer|receiv\w*)|nothing|not\s+receiv\w*|didn'?t\s+receive|nil|none)\b|没有|沒有|无到货|未收到|没收|沒收/i;
+const SHORT_WORDS = /\b(short|missing|less|partial|incomplete|damage\w*|wrong|extra|tally|discrepan\w*|not\s+tally)\b|少|缺|损坏|破损|不对|多了/i;
+function parseLarkText(text, country) {
+  const codes = Object.values(state.stores).filter(s => !country || s.country === country).map(s => s.code).sort((a, b) => b.length - a.length);
+  const out = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim(); if (!line) continue;
+    const up = line.toUpperCase();
+    const code = codes.find(c => new RegExp("(^|[^A-Z0-9])" + c.replace("-", "\\-") + "(?![A-Z0-9])", "i").test(up));
+    if (!code) { out.push({ raw: line, ok: false, why: "no store code" }); continue; }
+    const rest = line.replace(new RegExp(code.replace("-", "\\-"), "i"), " ").replace(/^[\s:\-–—,.]+/, "");
+    const m = rest.match(/(\d[\d,]*)\s*(pcs?|pieces?|pc|件)?/i);
+    let pcs = m ? parseInt(m[1].replace(/,/g, ""), 10) : null;
+    let status = "received";
+    if (NONE_WORDS.test(rest)) { status = "none"; if (pcs == null) pcs = 0; }
+    else if (SHORT_WORDS.test(rest)) status = "partial";
+    else if (pcs == null) status = "issue";
+    if (pcs === 0 && status === "received") status = "none";
+    const remark = rest.replace(m ? m[0] : "", "").replace(/\b(received|receive|rcv|recd)\b/ig, "").replace(/\s{2,}/g, " ").replace(/^[\s:\-–—,.]+|[\s:\-–—,.]+$/g, "").trim();
+    out.push({ raw: line, ok: true, code, pcs, status, remark });
+  }
+  return out;
+}
+
+/* ============================== DATA LAYER ============================== */
+// Two implementations with one interface: Firestore (live) and Demo (in memory).
+let DB = null, auth = null, fsdb = null;
+
+function makeDemoDB() {
+  // Deterministic sample data so the design can be reviewed before Firebase is connected.
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const today = todayStr();
+  const remarks = ["Carton 2 of 3 still with courier, will scan tomorrow", "Delivery arrived after closing — scanned next morning", "3 pcs short vs DO, informed warehouse", "没有到货", "Hanger box damaged, items ok", "Wrong store label on 1 carton (meant for AJE)", "Courier did not come today", "Scanner issue, receiving done on backup device"];
+  const feeds = {}, lark = {};
+  for (const c of COUNTRIES) {
+    const stores = STORE_SEED.filter(s => s[2] === c.id && s[4] !== false);
+    const days = {}, open = [];
+    lark[c.id] = {};
+    let txnNo = 26005300;
+    for (let i = 44; i >= 0; i--) {
+      const d = addDays(today, -i); const wk = dow(d);
+      days[d] = {}; lark[c.id][d] = {};
+      for (const s of stores) {
+        const p = wk === 0 ? 0.08 : wk === 6 ? 0.3 : 0.62;
+        if (rnd() > p) {
+          if (i > 0 && rnd() < 0.08) lark[c.id][d][s[0]] = { date: d, store: s[0], country: c.id, pcs: 0, status: "none", remark: pick(["No delivery today", "没有到货", ""]), reporter: "Store " + s[0], source: "lark", updatedAt: new Date() };
+          continue;
+        }
+        const nTx = rnd() < 0.7 ? 1 : 2; const t = []; let total = 0;
+        for (let k = 0; k < nTx; k++) {
+          const w = pick(["H", "L", "Z"]); const q = 10 + Math.floor(rnd() * 280); let r = q; let st = "Received";
+          const roll = rnd();
+          if (roll < 0.04) { r = q - 1 - Math.floor(rnd() * 4); st = "Pending Approval"; }
+          else if (roll < 0.07) { r = Math.floor(q * 0.6); st = "Receiving In Progress"; }
+          else if (roll < 0.085) { r = q * 2; }
+          if (st !== "Received" && i >= 5) { st = "Received"; r = q; }   // older ones got resolved
+          const hh = 10 + Math.floor(rnd() * 10);
+          t.push({ n: "STO-TF-" + (txnNo++), w, d: w + " " + pick(["补货", "RESTOCK", "BASIC 出货", "店面订货"]) + " " + d.slice(8) + d.slice(5, 7) + d.slice(2, 4) + " " + s[3].toUpperCase(), q, r: Math.min(r, q * 2), s: st, at: pad2(hh) + ":" + pad2(Math.floor(rnd() * 60)), td: addDays(d, -1) });
+          total += Math.min(r, q * 2);
+          if (st !== "Received") open.push({ c: s[0], n: t[t.length - 1].n, w, d: t[t.length - 1].d, q, r: t[t.length - 1].r, s: st, td: addDays(d, -1), rd: d });
+        }
+        days[d][s[0]] = { p: total, t };
+        if (i === 0 && rnd() < 0.25) continue;                   // today: some stores haven't reported yet
+        const roll = rnd();
+        if (roll < 0.1) continue;                                  // forgot to report
+        let pcs = total, status = "received", remark = "";
+        if (roll < 0.18) { pcs = total - (1 + Math.floor(rnd() * 12)); status = "partial"; remark = pick(remarks); }
+        else if (roll < 0.22) { pcs = total; status = "issue"; remark = pick(remarks); }
+        else if (roll < 0.26) { pcs = total + 2; }
+        lark[c.id][d][s[0]] = { date: d, store: s[0], country: c.id, pcs, status, remark, reporter: "Store " + s[0], source: rnd() < 0.7 ? "lark" : "manual", updatedAt: new Date() };
+      }
+      // a few dispatched-but-never-scanned transfers
+      if (i < 6 && rnd() < 0.6) { const s = pick(stores); const q = 40 + Math.floor(rnd() * 200); open.push({ c: s[0], n: "STO-TF-" + (txnNo++), w: pick(["H", "L"]), d: "H RESTOCK " + d.replace(/-/g, "") + " " + s[3].toUpperCase(), q, r: 0, s: "Not received", td: d, rd: null }); }
+    }
+    feeds[c.id] = { country: c.id, from: addDays(today, -44), to: today, generatedAt: new Date(Date.now() - 2.5 * 36e5), bqLoadedAt: new Date(Date.now() - 5 * 36e5), days, open };
+  }
+  const users = [
+    { uid: "u1", email: ADMIN_EMAIL, name: "Thian Wei", role: "admin", countries: ["SG", "MY"], allStores: true, stores: [], active: true, locked: false },
+    { uid: "u2", email: "ops.sg@example.com", name: "Ops SG", role: "ops", countries: ["SG"], allStores: true, stores: [], active: true, locked: false },
+    { uid: "u3", email: "am.my@example.com", name: "Area Manager MY", role: "viewer", countries: ["MY"], allStores: false, stores: ["AMM", "ASK", "TMM", "SMM"], active: true, locked: false },
+    { uid: "u4", email: "new.joiner@example.com", name: "", role: "pending", countries: [], allStores: true, stores: [], active: true, locked: false },
+  ];
+  const roles = { ops: { ...BUILTIN_ROLES.ops }, viewer: { ...BUILTIN_ROLES.viewer } };
+  return {
+    demo: true,
+    async loadStores() { return STORE_SEED.map(([c, n, k, b, a]) => ({ code: c, name: n, country: k, brand: b, active: a !== false })); },
+    async saveStore(s) { },
+    async loadFeed(country) { return feeds[country]; },
+    async loadLark(country, from, to) { const out = {}; for (const [d, m] of Object.entries(lark[country])) if (d >= from && d <= to) out[d] = { ...m }; return out; },
+    async saveLark(rep) { lark[rep.country][rep.date] = lark[rep.country][rep.date] || {}; lark[rep.country][rep.date][rep.store] = rep; },
+    async deleteLark(rep) { if (lark[rep.country][rep.date]) delete lark[rep.country][rep.date][rep.store]; },
+    async loadRoles() { return roles; }, async saveRole(id, r) { roles[id] = r; }, async deleteRole(id) { delete roles[id]; },
+    async loadUsers() { return users.slice(); },
+    async createUser(email, pw, profile) { const u = { uid: "u" + (users.length + 1), email, ...profile }; users.push(u); return u; },
+    async updateUser(uid, patch) { const u = users.find(x => x.uid === uid); if (u) Object.assign(u, patch); },
+    async deleteUser(uid) { const i = users.findIndex(x => x.uid === uid); if (i >= 0) users.splice(i, 1); },
+    async sendReset(email) { },
+    async loadSettings() { return { ...DEFAULT_SETTINGS }; }, async saveSettings(s) { },
+    async loadMeta() { return { larkPullAt: new Date(Date.now() - 40 * 60000), larkPullNote: "demo" }; },
+  };
+}
+
+function makeFirestoreDB() {
+  const col = n => fsdb.collection(n);
+  const clean = o => { const r = {}; for (const [k, v] of Object.entries(o)) if (v !== undefined) r[k] = v; return r; };
+  return {
+    demo: false,
+    async loadStores() {
+      const snap = await col("stores").get();
+      const seed = STORE_SEED.map(([c, n, k, b, a]) => ({ code: c, name: n, country: k, brand: b, active: a !== false }));
+      const byCode = Object.fromEntries(seed.map(s => [s.code, s]));
+      snap.forEach(d => { byCode[d.id] = { ...(byCode[d.id] || {}), ...d.data(), code: d.id }; });
+      return Object.values(byCode);
+    },
+    async saveStore(s) { await col("stores").doc(s.code).set(clean({ name: s.name, country: s.country, brand: s.brand, active: s.active, openedOn: s.openedOn || null, closedOn: s.closedOn || null, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }), { merge: true }); },
+    async loadFeed(country) {
+      const d = await col("swimsFeed").doc(country).get();
+      if (!d.exists) return null;
+      const x = d.data(); const p = JSON.parse(x.payload);
+      return { country, from: p.from, to: p.to, days: p.days || {}, open: p.open || [], generatedAt: x.generatedAt && x.generatedAt.toDate(), bqLoadedAt: x.bqLoadedAt && x.bqLoadedAt.toDate() };
+    },
+    async loadLark(country, from, to) {
+      const snap = await col("larkReports").where("country", "==", country).where("date", ">=", from).where("date", "<=", to).get();
+      const out = {};
+      snap.forEach(d => { const r = d.data(); (out[r.date] = out[r.date] || {})[r.store] = { ...r, id: d.id }; });
+      return out;
+    },
+    async saveLark(rep) {
+      const id = rep.date + "_" + rep.store;
+      await col("larkReports").doc(id).set(clean({ ...rep, updatedBy: state.user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }), { merge: true });
+    },
+    async deleteLark(rep) { await col("larkReports").doc(rep.date + "_" + rep.store).delete(); },
+    async loadRoles() { const snap = await col("roles").get(); const r = {}; snap.forEach(d => r[d.id] = d.data()); return r; },
+    async saveRole(id, r) { await col("roles").doc(id).set(r); },
+    async deleteRole(id) { await col("roles").doc(id).delete(); },
+    async loadUsers() { const snap = await col("users").get(); const u = []; snap.forEach(d => u.push({ uid: d.id, ...d.data() })); return u; },
+    async createUser(email, pw, profile) {
+      // A second Firebase app creates the account so the Administrator stays signed in.
+      const second = firebase.apps.find(a => a.name === "second") || firebase.initializeApp(FIREBASE_CONFIG, "second");
+      const cred = await second.auth().createUserWithEmailAndPassword(email, pw);
+      const uid = cred.user.uid;
+      await second.auth().signOut();
+      await col("users").doc(uid).set(clean({ email, ...profile, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: state.user.email }));
+      return { uid, email, ...profile };
+    },
+    async updateUser(uid, patch) { await col("users").doc(uid).update(clean(patch)); },
+    async deleteUser(uid) { await col("users").doc(uid).delete(); },   // removes access; the Auth record is removed in the Firebase console
+    async sendReset(email) { await auth.sendPasswordResetEmail(email); },
+    async loadSettings() { const d = await col("config").doc("app").get(); return { ...DEFAULT_SETTINGS, ...(d.exists ? d.data() : {}) }; },
+    async saveSettings(s) { await col("config").doc("app").set(s, { merge: true }); },
+    async loadMeta() { const d = await col("meta").doc("lark").get(); if (!d.exists) return {}; const x = d.data(); return { larkPullAt: x.lastPullAt && x.lastPullAt.toDate(), larkPullNote: x.note || "" }; },
+  };
+}
+
+/* ---- loading ---- */
+async function loadCountry(country, { silent } = {}) {
+  if (!silent) document.body.classList.add("refreshing");
+  try {
+    const from = addDays(state.date, -(MATRIX_DAYS + 20)), to = addDays(state.date, 2);
+    const [feed, lark] = await Promise.all([DB.loadFeed(country), DB.loadLark(country, from, to)]);
+    state.feed[country] = feed; state.lark[country] = lark; state.larkLoaded[country] = { from, to }; state.error = null;
+  } catch (e) { state.error = (e && e.message) || String(e); console.error(e); }
+  finally { document.body.classList.remove("refreshing"); }
+}
+async function ensureLarkWindow(country) {
+  const w = state.larkLoaded[country];
+  const from = addDays(state.date, -(MATRIX_DAYS + 20)), to = addDays(state.date, 2);
+  if (w && from >= w.from && to <= w.to) return;
+  await loadCountry(country, { silent: true });
+}
+async function loadAll() {
+  state.loading = true; render();
+  try {
+    const [stores, settings, roles] = await Promise.all([DB.loadStores(), DB.loadSettings(), DB.loadRoles()]);
+    state.stores = Object.fromEntries(stores.map(s => [s.code, s]));
+    state.settings = settings; state.roles = roles;
+    const vis = visibleCountries(); if (!vis.some(c => c.id === state.country) && vis.length) state.country = vis[0].id;
+    await Promise.all(vis.map(c => loadCountry(c.id, { silent: true })));
+  } catch (e) { state.error = (e && e.message) || String(e); console.error(e); }
+  state.loading = false; render();
+}
+</script>
+<script>
+/* ============================== FRAME ============================== */
+const ICONS = {
+  ledger: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4h14v16H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>',
+  stores: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z"/></svg>',
+  lark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></svg>',
+  settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4L7 17M17 7l1.4-1.4"/></svg>',
+  logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg>',
+};
+const icon = n => h("span", { html: ICONS[n], style: { display: "inline-flex" } });
+
+function render() {
+  const root = document.getElementById("root");
+  if (state.loading) { root.replaceChildren(h("div", { class: "loading" }, "Opening the ledger…")); return; }
+  const demoBand = DB.demo ? h("div", { class: "demo-band" }, h("b", null, "Demo mode"), "Sample numbers, no sign-in. Connect Firebase (see FIREBASE-SETUP.md) to go live with real SWIMS and Lark data.") : null;
+  const main = h("main");
+  const app = h("div", { id: "app" }, renderTopbar(), demoBand, main);
+  root.replaceChildren(app, h("div", { class: "scrim", onclick: closeDrawer }), h("div", { class: "drawer", role: "dialog" }));
+  if (state.error) main.append(h("div", { class: "notice crit" }, "Could not load data: " + state.error));
+  if (state.view === "day") renderDay(main);
+  else if (state.view === "stores") renderStores(main);
+  else if (state.view === "lark") renderLark(main);
+  else renderSettings(main);
+}
+function setView(v) { state.view = v; closeDrawer(); render(); window.scrollTo(0, 0); }
+async function setCountry(c) { state.country = c; localStorage.setItem("rl.country", c); closeDrawer(); render(); }
+async function setDate(d) { state.date = d; closeDrawer(); render(); await ensureLarkWindow(state.country); render(); }
+
+function renderTopbar() {
+  const vis = visibleCountries();
+  const u = state.user;
+  const initials = u && (u.name || u.email || "?").split(/[\s@._]+/).filter(Boolean).slice(0, 2).map(s => s[0].toUpperCase()).join("");
+  const tabs = [["day", "Daily check", "ledger"], ["stores", "Store history", "stores"], perm("logLark") ? ["lark", "Store reports", "lark"] : null, ["settings", "Settings", "settings"]].filter(Boolean);
+  return h("header", { class: "topbar" },
+    h("div", { class: "brand" }, h("div", { class: "mark" }, h("span", { html: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h8"/></svg>', style: { display: "inline-flex" } })),
+      h("div", null, h("div", { class: "t1" }, "Store Transfer Receiving Report"), h("div", { class: "t2" }, "IORA Group"))),
+    h("nav", { class: "tabs" }, tabs.map(([v, t, i]) => h("button", { class: state.view === v ? "on" : "", onclick: () => setView(v) }, icon(i), t))),
+    h("div", { class: "right" },
+      h("div", { class: "seg" }, vis.map(c => h("button", { class: c.id === state.country ? "on" : "", onclick: () => setCountry(c.id) }, c.id))),
+      u ? h("div", { class: "userchip" }, h("div", { class: "av" }, initials || "?"),
+        h("div", { class: "who" }, h("b", null, u.name || u.email), h("span", null, roleName(u.role))),
+        FIREBASE_CONFIG ? h("button", { class: "out", title: "Sign out", onclick: () => auth.signOut() }, icon("logout")) : null) : null));
+}
+// The last 14 days as a horizontal strip, oldest on the left: pieces received (SWIMS) and a red dot when stores need a look.
+function dayStrip() {
+  const list = []; for (let i = RAIL_DAYS - 1; i >= 0; i--) list.push(addDays(todayStr(), -i));
+  const max = Math.max(1, ...list.map(d => swimsDayTotal(state.country, d)));
+  return h("div", { class: "daystrip" }, list.map(d => {
+    const tot = swimsDayTotal(state.country, d);
+    const t = dayTotals(state.country, d);
+    const wk = dow(d) === 0 || dow(d) === 6;
+    return h("button", { class: d === state.date ? "on" : "", onclick: () => setDate(d), title: dLong(d) + (t.issues ? " · " + t.issues + " store(s) need a look" : "") },
+      h("span", { class: "dw" }, h("span", null, DOW[dow(d)] + " " + pad2(dateFrom(d).getUTCDate())), t.issues ? h("i", { class: "flag" }) : null),
+      h("span", { class: "n " + (tot ? "" : "none") }, tot ? fmt(tot) : "—"),
+      h("span", { class: "bar" }, h("i", { class: wk ? "weekend" : "", style: { width: (tot / max * 100) + "%" } })));
+  }));
+}
+function feedMeta() {
+  const f = state.feed[state.country];
+  if (!f) return h("div", { class: "meta" }, h("span", { class: "dot off" }), "No system data yet for " + state.country, h("br"), h("span", { class: "muted" }, "the daily feed job has not run (see README)"));
+  const age = hoursAgo(f.generatedAt);
+  const cls = age > FEED_STALE_HOURS * 2 ? "off" : age > FEED_STALE_HOURS ? "stale" : "";
+  return h("div", { class: "meta" }, h("span", { class: "dot " + cls }), "System data updated " + tsFmt(f.generatedAt), h("br"),
+    h("span", { class: "muted" }, "covers " + dShort(f.from) + " – " + dShort(f.to)));
+}
+function masthead(sub) {
+  const d = state.date; const dt = dateFrom(d);
+  const nav = h("div", { class: "datenav" },
+    h("button", { class: "btn icon", title: "Previous day", onclick: () => setDate(addDays(d, -1)) }, "←"),
+    h("input", { type: "date", value: d, max: addDays(todayStr(), 1), onchange: e => e.target.value && setDate(e.target.value) }),
+    h("button", { class: "btn icon", title: "Next day", onclick: () => setDate(addDays(d, 1)), disabled: d >= todayStr() }, "→"),
+    d !== todayStr() ? h("button", { class: "btn sm", onclick: () => setDate(todayStr()) }, "Today") : null);
+  return h("div", null, h("div", { class: "masthead" },
+    h("div", null, h("div", { class: "eyebrow" }, sub), h("h1", { class: "date" }, DOWL[dt.getUTCDay()], " ", h("em", null, dt.getUTCDate() + " " + MONL[dt.getUTCMonth()]), d.slice(0, 4) !== todayStr().slice(0, 4) ? " " + d.slice(0, 4) : "")),
+    nav, feedMeta()), dayStrip());
+}
+
+/* ============================== DAY VIEW ============================== */
+function sparkline(values, color, highlightLast) {
+  const w = 120, hh = 26, n = values.length, max = Math.max(1, ...values);
+  const s = svg("svg", { viewBox: "0 0 " + w + " " + hh, preserveAspectRatio: "none" });
+  const bw = w / n;
+  values.forEach((v, i) => {
+    const bh = Math.max(v ? 2 : 0, v / max * hh);
+    s.append(svg("rect", { x: i * bw + 1, y: hh - bh, width: Math.max(1, bw - 2), height: bh, rx: 1, fill: color, opacity: highlightLast && i === n - 1 ? 1 : .45 }));
+  });
+  return s;
+}
+function countryName(c) { return (COUNTRIES.find(x => x.id === c) || {}).name || c; }
+function statusEl(s, withDetail) {
+  return h("span", { class: "status " + s.cls }, h("i", null, s.icon), s.label, withDetail && s.detail ? h("span", { class: "det" }, " · " + s.detail) : null);
+}
+function renderDay(main) {
+  const c = state.country, d = state.date;
+  const isToday = d === todayStr();
+  main.append(masthead("Daily check · " + countryName(c)));
+  const t = dayTotals(c, d);
+  const recs = dayRecords(c, d);
+  const cov = swimsCoverage(c, d);
+  const received = recs.filter(r => r.swims > 0).length;
+  const follow = recs.filter(r => r.severity > 0).sort((a, b) => b.severity - a.severity || (b.swims || 0) - (a.swims || 0));
+  const dayWord = isToday ? "today" : "on this day";
+
+  // ---- plain-language summary ----
+  const sum = h("div", { class: "summary" });
+  if (cov === "none") {
+    sum.append(h("div", { class: "big" }, "The system (SWIMS) data for ", h("b", null, dLong(d)), " has not been loaded yet. ",
+      t.reported ? [h("b", null, t.reported + " store" + (t.reported === 1 ? "" : "s")), " ha" + (t.reported === 1 ? "s" : "ve") + " sent a report so far."] : "No store reports yet."));
+  } else {
+    sum.append(h("div", { class: "big" },
+      h("b", null, received + " of " + t.stores + " stores"), " received stock " + dayWord + ", ", h("b", null, fmt(t.swims) + " pieces"), " in total. ",
+      h("b", null, t.reported + " store" + (t.reported === 1 ? "" : "s")), " ha" + (t.reported === 1 ? "s" : "ve") + " sent " + (isToday ? "today's" : "the day's") + " report. ",
+      follow.length ? [h("b", { class: "bad" }, follow.length + " store" + (follow.length === 1 ? " needs" : "s need") + " a follow-up"), "."] : h("b", { class: "ok" }, "Nothing needs a follow-up.")));
+  }
+  if (cov === "partial") sum.append(h("div", { class: "tile-note", style: { marginTop: "8px" } }, "The system data for this day is still coming in (last loaded " + tsFmt(state.feed[c].bqLoadedAt) + "), so numbers may grow and store-vs-system checks are paused."));
+  if (cov === "full" && !larkActive(c)) sum.append(h("div", { class: "tile-note", style: { marginTop: "8px" } }, "No store reports have been entered for " + countryName(c) + " yet. ",
+    perm("logLark") ? h("a", { href: "#", onclick: e => { e.preventDefault(); setView("lark"); } }, "Enter the stores' reports →") : "Someone with the Operations role enters them under Store reports."));
+  main.append(sum);
+
+  // ---- three tiles ----
+  const last14 = []; for (let i = 13; i >= 0; i--) last14.push(addDays(d, -i));
+  main.append(h("div", { class: "figures three" },
+    h("div", { class: "fig" }, h("div", { class: "lab" }, "Stock received " + dayWord + " (system)"),
+      h("div", { class: "val" }, fmt(t.swims), h("span", { class: "unit" }, "pieces")),
+      h("div", { class: "sub" }, received + " stores · " + t.txns + " deliver" + (t.txns === 1 ? "y" : "ies")),
+      h("div", { class: "spark" }, sparkline(last14.map(x => swimsDayTotal(c, x)), "var(--swims)", true)), h("div", { class: "tile-note" }, "last 14 days")),
+    h("div", { class: "fig" }, h("div", { class: "lab" }, "Stores that sent their report"),
+      h("div", { class: "val" }, t.reported, h("span", { class: "unit" }, "of " + t.stores)),
+      h("div", { class: "sub" }, (t.stores - t.reported) + " still to report", perm("logLark") ? h("button", { class: "btn sm", onclick: () => setView("lark") }, "Enter a report") : null)),
+    h("div", { class: "fig " + (follow.length ? "alert" : "") }, h("div", { class: "lab" }, "Stores to follow up"),
+      h("div", { class: "val" }, follow.length, h("span", { class: "unit" }, follow.length === 1 ? "store" : "stores")),
+      h("div", { class: "sub" }, follow.length ? "see the list below" : "all clear"))));
+
+  // ---- follow-up list ----
+  const fu = h("section", { class: "section" },
+    h("header", null, h("h2", null, "Stores to follow up"), h("span", { class: "sub" }, follow.length ? "what's wrong and what the store said · click a store for details" : "")));
+  if (!follow.length) fu.append(h("div", { class: "allclear" }, statusEl({ cls: "good", icon: "✓", label: "All clear" }), "Every store that received stock has reported, and the numbers agree."));
+  else fu.append(h("div", { class: "followup" }, follow.map(r => h("div", { class: "row", onclick: () => openStoreDrawer(r.code) },
+    h("div", { class: "store" }, h("b", null, r.code), h("span", null, r.store.name)),
+    h("div", null, statusEl(r.status), r.status.detail ? h("div", { class: "det" }, r.status.detail) : null,
+      r.lark && r.lark.remark ? h("div", { class: "rem" }, h("b", null, "Store said: "), "“" + r.lark.remark + "”") : null)))));
+  main.append(fu);
+
+  // ---- all stores ----
+  const sec = h("section", { class: "section" },
+    h("header", null, h("h2", null, "All stores"), h("span", { class: "sub" }, "what the system recorded and what each store reported"),
+      h("div", { class: "tools" }, h("button", { class: "btn sm", onclick: () => exportDayCsv(recs) }, "Download Excel (CSV)"))));
+  const brands = BRAND_ORDER.filter(b => recs.some(r => r.store.brand === b));
+  const fr = state.filters;
+  const search = h("input", { class: "input search", placeholder: "Find a store…", value: fr.q, oninput: e => { fr.q = e.target.value; drawTable(); } });
+  const chips = h("div", { class: "chips" }, h("button", { class: fr.brand === "all" ? "on" : "", onclick: () => { fr.brand = "all"; drawFilters(); drawTable(); } }, "All brands"),
+    brands.map(b => h("button", { class: fr.brand === b ? "on" : "", onclick: () => { fr.brand = b; drawFilters(); drawTable(); } }, BRAND_LABEL[b])));
+  const tog = h("label", { class: "tog" }, h("button", { class: "switch " + (fr.issues ? "on" : ""), onclick: e => { fr.issues = !fr.issues; e.target.classList.toggle("on", fr.issues); drawTable(); } }), "Only stores to follow up");
+  const wrap = h("div", { class: "tablewrap" });
+  sec.append(h("div", { class: "filterrow" }, search, chips, tog), wrap,
+    h("details", { class: "howto" }, h("summary", null, "How to read this page"),
+      h("ul", null,
+        h("li", null, h("b", null, "Received (system)"), " — pieces the store scanned in on the SWIMS handheld that day. This is the official number."),
+        h("li", null, h("b", null, "Store reported"), " — the number the store wrote in the daily Lark group message, with their remark."),
+        h("li", null, h("b", null, "All good"), " — the store reported and its number matches the system."),
+        h("li", null, h("b", null, "Numbers don't match"), " — the store's number differs from the system. Usually a miscount or a scan done the next day."),
+        h("li", null, h("b", null, "Store hasn't sent today's report"), " — the system shows stock received but there is no Lark message from the store."),
+        h("li", null, h("b", null, "Stock sent, not received yet"), " — the warehouse sent stock some days ago and the store has not scanned it in."),
+        h("li", null, h("b", null, "No delivery"), " — nothing was sent to the store that day."))));
+  main.append(sec);
+  function drawFilters() { chips.querySelectorAll("button").forEach((b, i) => b.classList.toggle("on", (i === 0 ? "all" : brands[i - 1]) === fr.brand)); }
+  function drawTable() {
+    const q = fr.q.trim().toLowerCase();
+    const rows = recs.filter(r => (fr.brand === "all" || r.store.brand === fr.brand) && (!fr.issues || r.severity > 0) && (!q || r.code.toLowerCase().includes(q) || r.store.name.toLowerCase().includes(q)));
+    const tbl = h("table", { class: "ledger" }, h("thead", null, h("tr", null,
+      h("th", null, "Store"), h("th", { class: "num" }, "Received (system)"), h("th", { class: "num" }, "Store reported"), h("th", null, "Status"), h("th", null, "What the store said"))));
+    const tb = h("tbody");
+    if (!rows.length) tb.append(h("tr", null, h("td", { colspan: 5 }, h("div", { class: "empty" }, h("div", { class: "big" }, "Nothing to show"), "No stores match this filter."))));
+    for (const b of BRAND_ORDER) {
+      const grp = rows.filter(r => r.store.brand === b); if (!grp.length) continue;
+      const gs = grp.reduce((a, r) => a + (r.swims || 0), 0);
+      tb.append(h("tr", { class: "grp" }, h("td", { colspan: 5 }, BRAND_LABEL[b], h("span", null, grp.length + " stores · " + fmt(gs) + " pieces received"))));
+      for (const r of grp.sort((a, b) => a.code.localeCompare(b.code))) {
+        const lk = r.lark; const lp = lk ? lk.pcs : null;
+        tb.append(h("tr", { class: "r " + (r.severity === 2 ? "issue" : r.severity === 1 ? "warn" : ""), onclick: () => openStoreDrawer(r.code) },
+          h("td", null, h("span", { class: "code" }, r.code), h("span", { class: "nm" }, r.store.name)),
+          h("td", { class: "num " + (r.swims ? "" : "na") }, r.swims == null ? (r.coverage === "full" ? "0" : "–") : fmt(r.swims)),
+          h("td", { class: "num " + (lp == null ? "na" : "") }, lp == null ? (lk ? "–" : "") : fmt(lp)),
+          h("td", null, statusEl(r.status)),
+          h("td", { class: "rem" }, lk && lk.remark ? lk.remark : h("span", { class: "muted" }, lk ? (lk.status === "received" ? "" : STATUS_LABEL[lk.status]) : ""))));
+      }
+    }
+    tbl.append(tb); wrap.replaceChildren(tbl);
+  }
+  drawTable();
+}
+function exportDayCsv(recs) {
+  const rows = [["date", "country", "store", "name", "brand", "swims_pcs", "lark_pcs", "delta", "open_transfers", "open_pcs", "lark_status", "lark_remark", "flags"]];
+  for (const r of recs) rows.push([state.date, state.country, r.code, r.store.name, r.store.brand, r.swims ?? "", r.lark ? r.lark.pcs ?? "" : "", (r.lark && r.lark.pcs != null && r.swims != null) ? r.lark.pcs - r.swims : "",
+    r.open.length, r.open.reduce((a, o) => a + Math.max(0, o.q - (o.r || 0)), 0), r.lark ? r.lark.status : "", r.lark ? r.lark.remark || "" : "", r.flags.map(f => f.text).join("; ")]);
+  const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\n");
+  const a = h("a", { href: URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })), download: "receiving_" + state.country + "_" + state.date + ".csv" }); a.click();
+}
+
+/* ============================== STORE DRAWER ============================== */
+function openDrawer(nodes) {
+  const dr = document.querySelector(".drawer"), sc = document.querySelector(".scrim");
+  dr.replaceChildren(h("button", { class: "close", onclick: closeDrawer, title: "Close" }, "✕"), ...nodes);
+  dr.classList.add("open"); sc.classList.add("open"); dr.scrollTop = 0;
+}
+function closeDrawer() { document.querySelector(".drawer")?.classList.remove("open"); document.querySelector(".scrim")?.classList.remove("open"); }
+function openStoreDrawer(code, dateOverride) {
+  const c = state.country, d = dateOverride || state.date;
+  const r = dayRecord(c, d, code);
+  const st = r.store;
+  const hist = []; for (let i = 13; i >= 0; i--) hist.push(addDays(d, -i));
+  const hmax = Math.max(1, ...hist.map(x => { const rr = dayRecord(c, x, code); return Math.max(rr.swims || 0, rr.lark ? rr.lark.pcs || 0 : 0); }));
+  const histEl = h("div", { class: "hist" }, h("span", { class: "hd" }, "Day"), h("span", { class: "hd" }, "SWIMS"), h("span", { class: "hd" }, "Lark"));
+  for (const x of hist) {
+    const rr = dayRecord(c, x, code);
+    const lp = rr.lark ? rr.lark.pcs : null;
+    histEl.append(h("span", { class: "d" }, DOW[dow(x)].slice(0, 2) + " " + pad2(dateFrom(x).getUTCDate())),
+      h("div", { class: "bw" }, h("i", { class: "b s " + (rr.swims ? "" : "none"), style: { width: Math.max(2, (rr.swims || 0) / hmax * 100) + "%" } }), h("span", null, rr.swims == null ? "" : fmt(rr.swims))),
+      h("div", { class: "bw", title: rr.lark ? (STATUS_LABEL[rr.lark.status] + (rr.lark.remark ? " — " + rr.lark.remark : "")) : "not reported" },
+        h("i", { class: "b l " + (lp ? "" : "none"), style: { width: Math.max(2, (lp || 0) / hmax * 100) + "%" } }), h("span", null, lp == null ? (rr.lark ? "0" : "") : fmt(lp)),
+        rr.severity ? h("span", { class: "chip " + (rr.severity === 2 ? "crit" : "warn"), style: { marginLeft: "4px" } }, rr.flags[0].text) : null));
+  }
+  const txns = h("div", { class: "txnlist" });
+  if (!r.txns.length) txns.append(h("div", { class: "muted", style: { padding: "8px 0" } }, "Nothing was scanned in on this day."));
+  for (const t of r.txns) txns.append(h("div", { class: "t" },
+    h("span", { class: "no" }, t.n), h("span", { class: "q" }, fmt(t.r), h("small", null, " / " + fmt(t.q) + " pcs")),
+    h("span", { class: "nm" }, "Warehouse " + t.w + " · " + t.d + " · dispatched " + dShort(t.td)), h("span", { class: "st" }, t.s + (t.at ? " · " + t.at : ""))));
+  const open = h("div", { class: "txnlist" });
+  if (!r.open.length) open.append(h("div", { class: "muted", style: { padding: "8px 0" } }, "Nothing on the way — everything sent has been received."));
+  for (const o of r.open.sort((a, b) => a.td.localeCompare(b.td))) open.append(h("div", { class: "t" },
+    h("span", { class: "no" }, o.n), h("span", { class: "q" }, fmt(Math.max(0, o.q - (o.r || 0))), h("small", null, " of " + fmt(o.q) + " pcs pending")),
+    h("span", { class: "nm" }, "Warehouse " + o.w + " · " + o.d), h("span", { class: "st" }, o.s + " · dispatched " + dShort(o.td) + " (" + daysBetween(o.td, d) + "d)")));
+  const lk = r.lark;
+  const larkEl = lk ? h("div", null,
+    h("div", null, h("span", { class: "chip " + (lk.status === "received" ? "good" : lk.status === "none" ? "" : "crit") }, STATUS_LABEL[lk.status] || lk.status), " ",
+      h("b", { class: "mono" }, lk.pcs == null ? "–" : fmt(lk.pcs) + " pcs")),
+    lk.remark ? h("p", { style: { fontFamily: "var(--serif)", fontSize: "15px", fontStyle: "italic", margin: "10px 0 4px" } }, "“" + lk.remark + "”") : null,
+    h("div", { class: "sourcetag" }, (lk.reporter ? lk.reporter + " · " : "") + "via " + (lk.source || "manual") + (lk.updatedAt ? " · " + tsFmt(lk.updatedAt) : "")))
+    : h("div", { class: "muted" }, "The store has not sent a report for this day.");
+  const edit = perm("logLark") ? h("button", { class: "btn sm", onclick: () => { state.view = "lark"; state.larkDraft = { date: d, store: code }; render(); closeDrawer(); } }, lk ? "Edit report" : "Log report") : null;
+  openDrawer([
+    h("div", { class: "eyebrow" }, BRAND_LABEL[st.brand] + " · " + st.country + " · " + dLong(d)),
+    h("h3", null, h("span", { class: "mono" }, code), " ", st.name),
+    h("div", { class: "dsub" }, statusEl(r.status, true), r.flags.length > 1 ? h("div", { style: { marginTop: "6px", display: "flex", gap: "4px", flexWrap: "wrap" } }, r.flags.slice(1).map(f => h("span", { class: "chip " + f.cls }, f.text))) : null),
+    h("h4", null, "What the store reported (Lark)"), larkEl, edit ? h("div", { style: { marginTop: "10px" } }, edit) : null,
+    h("h4", null, "Received in the system (SWIMS) this day · " + fmt(r.swims || 0) + " pcs"), txns,
+    h("h4", null, "Stock sent to this store, not yet received"), open,
+    h("h4", null, "Last 14 days · system vs store"), histEl,
+  ]);
+}
+
+/* ============================== STORES MATRIX ============================== */
+function renderStores(main) {
+  const c = state.country, d = state.date;
+  main.append(masthead("Store history · " + countryName(c)));
+  const days = []; for (let i = MATRIX_DAYS - 1; i >= 0; i--) days.push(addDays(d, -i));
+  const stores = activeStores(c);
+  const fr = state.filters;
+  const sec = h("section", { class: "section" },
+    h("header", null, h("h2", null, "Pieces received, by store and day"), h("span", { class: "sub" }, "up to " + dLong(d) + " · darker blue = more pieces received (system)"),
+      h("div", { class: "tools" }, h("div", { class: "scalebar" }, "0", [1, 2, 3, 4, 5, 6].map(i => h("i", { style: { background: "var(--seq-" + i + ")" } })), "max"),
+        h("span", { class: "legend" }, h("span", { class: "k" }, h("i", { style: { background: "var(--critical)", borderRadius: "50%", width: "8px", height: "8px" } }), "needs follow-up"), h("span", { class: "k" }, h("i", { style: { background: "var(--lark)", height: "2px", width: "12px" } }), "received, store did not report")),
+        h("button", { class: "btn sm " + (state.matrixTable ? "solid" : ""), onclick: () => { state.matrixTable = !state.matrixTable; render(); } }, state.matrixTable ? "Heatmap" : "Table view"))));
+  const brands = BRAND_ORDER.filter(b => stores.some(s => s.brand === b));
+  const chips = h("div", { class: "chips" }, h("button", { class: fr.brand === "all" ? "on" : "", onclick: () => { fr.brand = "all"; render(); } }, "All brands"),
+    brands.map(b => h("button", { class: fr.brand === b ? "on" : "", onclick: () => { fr.brand = b; render(); } }, BRAND_LABEL[b])));
+  sec.append(h("div", { class: "filterrow" }, chips));
+  const rows = stores.filter(s => fr.brand === "all" || s.brand === fr.brand);
+  const cell = {}; let max = 1;
+  for (const s of rows) for (const x of days) { const r = dayRecord(c, x, s.code); cell[s.code + x] = r; max = Math.max(max, r.swims || 0); }
+  const wrap = h("div", { class: "tablewrap" });
+  if (state.matrixTable) {
+    const tbl = h("table", { class: "ledger" }, h("thead", null, h("tr", null, h("th", null, "Store"), days.map(x => h("th", { class: "num" }, pad2(dateFrom(x).getUTCDate()))))));
+    const tb = h("tbody");
+    for (const b of BRAND_ORDER) { const g = rows.filter(s => s.brand === b); if (!g.length) continue;
+      tb.append(h("tr", { class: "grp" }, h("td", { colspan: days.length + 1 }, BRAND_LABEL[b])));
+      for (const s of g) tb.append(h("tr", { class: "r", onclick: () => openStoreDrawer(s.code) }, h("td", null, h("span", { class: "code" }, s.code)), days.map(x => { const r = cell[s.code + x]; return h("td", { class: "num " + (r.swims ? "" : "na") }, r.swims ? fmt(r.swims) : "·"); })));
+    }
+    tbl.append(tb); wrap.append(tbl);
+  } else {
+    const tbl = h("table", { class: "matrix" });
+    const head = h("tr", null, h("th", { class: "rowh" }, ""), days.map(x => h("th", { class: dow(x) === 0 || dow(x) === 6 ? "wk" : "" }, pad2(dateFrom(x).getUTCDate()))));
+    const head2 = h("tr", null, h("th", { class: "rowh" }, ""), days.map(x => h("th", { class: "wk" }, DOW[dow(x)][0])));
+    tbl.append(h("thead", null, head, head2));
+    const tb = h("tbody");
+    for (const b of BRAND_ORDER) { const g = rows.filter(s => s.brand === b); if (!g.length) continue;
+      tb.append(h("tr", { class: "grp" }, h("th", { class: "rowh", colspan: days.length + 1 }, BRAND_LABEL[b])));
+      for (const s of g) {
+        const tr = h("tr", null, h("th", { class: "rowh" }, s.code, h("span", null, s.name)));
+        for (const x of days) {
+          const r = cell[s.code + x]; const v = r.swims || 0;
+          const q = v ? Math.min(6, 1 + Math.floor(Math.sqrt(v / max) * 5.999)) : 0;
+          const td = h("td", { tabindex: 0, class: (q ? "q" + q : (dow(x) === 0 || dow(x) === 6 ? "wkend" : "")) + (r.severity === 2 ? " mis" : r.flags.some(f => f.k === "norep") ? " norep" : "") + (x === todayStr() ? " today" : ""), onclick: () => openStoreDrawer(s.code, x) });
+          tipAttach(td, () => [h("b", null, s.code + " · " + dShort(x)), h("br"), h("span", { class: "k", style: { background: "var(--swims)" } }), "System: " + fmt(v) + " pcs", h("br"),
+            h("span", { class: "k", style: { background: "var(--lark)" } }), r.lark ? "Store reported: " + (r.lark.pcs == null ? "–" : fmt(r.lark.pcs) + " pcs") + " · " + STATUS_LABEL[r.lark.status] : "Store report: none",
+            r.lark && r.lark.remark ? [h("br"), h("i", null, "“" + r.lark.remark + "”")] : null, r.flags.length ? [h("br"), r.flags.map(f => f.text).join(" · ")] : null]);
+          tr.append(td);
+        }
+        tb.append(tr);
+      }
+    }
+    tbl.append(tb); wrap.append(tbl);
+  }
+  sec.append(wrap); main.append(sec);
+}
+
+/* ============================== LARK LOG ============================== */
+function renderLark(main) {
+  const c = state.country, d = state.date;
+  main.append(masthead("Store reports · " + countryName(c)));
+  if (!perm("logLark")) { main.append(h("div", { class: "notice" }, "Your role can view the ledger but not log reports. Ask an Administrator for the Operations role.")); return; }
+  const draft = state.larkDraft || {}; state.larkDraft = null;
+  const stores = activeStores(c);
+  const existing = draft.store && state.lark[c] && state.lark[c][draft.date || d] && state.lark[c][draft.date || d][draft.store];
+  // ---- single entry form ----
+  const fDate = h("input", { type: "date", value: draft.date || d, max: addDays(todayStr(), 1) });
+  const fStore = h("select", null, h("option", { value: "" }, "Select store…"), stores.map(s => h("option", { value: s.code, selected: s.code === draft.store }, s.code + " — " + s.name)));
+  const fPcs = h("input", { type: "number", min: 0, step: 1, placeholder: "0", value: existing ? existing.pcs ?? "" : "" });
+  const fRem = h("textarea", { placeholder: "What the store wrote: why nothing came, what was short, courier issue…" }); if (existing) fRem.value = existing.remark || "";
+  const fRep = h("input", { type: "text", placeholder: "e.g. store manager's name", value: existing ? existing.reporter || "" : "" });
+  let status = existing ? existing.status : "received";
+  const pick = h("div", { class: "statuspick" });
+  const drawPick = () => pick.replaceChildren(...Object.entries(STATUS_LABEL).map(([k, v]) => h("button", { type: "button", class: k === status ? "on" : "", onclick: () => { status = k; if (k === "none" && !fPcs.value) fPcs.value = 0; drawPick(); } }, v)));
+  drawPick();
+  const msg = h("div", { class: "muted", style: { fontSize: "13px" } });
+  async function saveOne() {
+    if (!fStore.value) { msg.textContent = "Pick a store."; return; }
+    const pcs = fPcs.value === "" ? null : Math.max(0, parseInt(fPcs.value, 10) || 0);
+    const rep = { date: fDate.value, store: fStore.value, country: c, pcs, status, remark: fRem.value.trim(), reporter: fRep.value.trim(), source: "manual" };
+    try { await DB.saveLark(rep); (state.lark[c][rep.date] = state.lark[c][rep.date] || {})[rep.store] = { ...rep, updatedAt: new Date(), updatedBy: state.user && state.user.email }; toast("Saved " + rep.store + " · " + dShort(rep.date)); state.date = rep.date; render(); }
+    catch (e) { msg.textContent = "Could not save: " + e.message; }
+  }
+  const form = h("div", { class: "panel" }, h("h3", null, existing ? "Edit a store's report" : "Enter one store's report"),
+    h("div", { class: "form" },
+      h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Date"), fDate), h("label", { class: "field" }, h("span", null, "Store"), fStore)),
+      h("div", { class: "field" }, h("span", null, "What happened"), pick),
+      h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Pieces received"), fPcs), h("label", { class: "field" }, h("span", null, "Reported by"), fRep)),
+      h("label", { class: "field" }, h("span", null, "Remark from the store"), fRem),
+      h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, h("button", { class: "btn solid", onclick: saveOne }, existing ? "Update" : "Save"), msg)));
+  // ---- paste import ----
+  const ta = h("textarea", { placeholder: "Paste the day's messages from the Lark group, one store per line:\nABJ 120 pcs received\nTJE - no delivery today\nSMS 85pcs, 2 cartons short STO-TF-26005162" });
+  const pDate = h("input", { type: "date", value: d, max: addDays(todayStr(), 1) });
+  const prev = h("div", { class: "preview" }, h("span", { class: "muted" }, "Parsed lines appear here."));
+  let parsed = [];
+  ta.addEventListener("input", () => {
+    parsed = parseLarkText(ta.value, c);
+    prev.replaceChildren(parsed.length ? parsed.map(p => p.ok
+      ? h("div", { class: "pr" }, h("span", { class: "c" }, p.code), h("span", { class: "p" }, p.pcs == null ? "?" : p.pcs + " pcs"), h("span", null, h("span", { class: "chip " + (p.status === "received" ? "good" : p.status === "none" ? "" : "crit"), style: { marginRight: "6px" } }, STATUS_LABEL[p.status]), p.remark))
+      : h("div", { class: "pr bad" }, h("span", { class: "c" }, "?"), h("span"), h("span", null, p.raw + " — " + p.why))) : h("span", { class: "muted" }, "Parsed lines appear here."));
+  });
+  const pmsg = h("div", { class: "muted", style: { fontSize: "13px" } });
+  async function importAll() {
+    const ok = parsed.filter(p => p.ok); if (!ok.length) { pmsg.textContent = "Nothing to import."; return; }
+    let n = 0;
+    for (const p of ok) { const rep = { date: pDate.value, store: p.code, country: c, pcs: p.pcs, status: p.status, remark: p.remark, reporter: "", source: "paste" };
+      try { await DB.saveLark(rep); (state.lark[c][rep.date] = state.lark[c][rep.date] || {})[rep.store] = { ...rep, updatedAt: new Date() }; n++; } catch (e) { pmsg.textContent = "Stopped at " + p.code + ": " + e.message; break; } }
+    toast("Imported " + n + " report" + (n === 1 ? "" : "s")); state.date = pDate.value; render();
+  }
+  const paste = h("div", { class: "panel pastebox" }, h("h3", null, "Paste the Lark messages"),
+    h("div", { class: "form" }, h("label", { class: "field" }, h("span", null, "Report date"), pDate), h("label", { class: "field" }, h("span", null, "Messages"), ta, h("span", { class: "hint" }, "One line per store. The store code, the number of pieces and words like “no delivery”, “short”, “没有到货” are picked up automatically; the rest becomes the remark.")),
+      prev, h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, h("button", { class: "btn solid", onclick: importAll }, "Import parsed lines"), pmsg)));
+  // ---- the day's reports ----
+  const reps = Object.values((state.lark[c] && state.lark[c][d]) || {}).sort((a, b) => a.store.localeCompare(b.store));
+  const tbl = h("table", { class: "ledger" }, h("thead", null, h("tr", null, h("th", null, "Store"), h("th", null, "Status"), h("th", { class: "num" }, "Pcs"), h("th", { class: "num" }, "SWIMS"), h("th", null, "Remark"), h("th", null, "Source"), h("th", null, ""))));
+  const tb = h("tbody");
+  if (!reps.length) tb.append(h("tr", null, h("td", { colspan: 7 }, h("div", { class: "empty" }, h("div", { class: "big" }, "No reports logged for " + dShort(d)), "Use the form or paste the Lark messages."))));
+  for (const r of reps) {
+    const rec = dayRecord(c, d, r.store);
+    tb.append(h("tr", { class: "r" + (rec.severity === 2 ? " issue" : ""), onclick: () => openStoreDrawer(r.store) },
+      h("td", null, h("span", { class: "code" }, r.store), h("span", { class: "nm" }, storeOf(r.store).name)),
+      h("td", null, h("span", { class: "chip " + (r.status === "received" ? "good" : r.status === "none" ? "" : "crit") }, STATUS_LABEL[r.status] || r.status)),
+      h("td", { class: "num" }, r.pcs == null ? "–" : fmt(r.pcs)), h("td", { class: "num muted" }, rec.swims == null ? "–" : fmt(rec.swims)),
+      h("td", { class: "rem" }, r.remark ? h("i", null, r.remark) : ""), h("td", null, h("span", { class: "sourcetag" }, (r.source || "manual") + (r.reporter ? " · " + r.reporter : ""))),
+      h("td", null, h("button", { class: "btn sm", onclick: e => { e.stopPropagation(); state.larkDraft = { date: d, store: r.store }; render(); } }, "Edit"), " ",
+        h("button", { class: "btn sm danger", onclick: async e => { e.stopPropagation(); if (!confirm("Delete " + r.store + "'s report for " + dShort(d) + "?")) return; await DB.deleteLark(r); delete state.lark[c][d][r.store]; render(); } }, "Delete"))));
+  }
+  tbl.append(tb);
+  const todayList = h("section", { class: "section" }, h("header", null, h("h2", null, "Reports for " + dLong(d)), h("span", { class: "sub" }, reps.length + " logged")), h("div", { class: "tablewrap" }, tbl));
+  main.append(h("div", { class: "section larkgrid" }, h("div", { style: { display: "grid", gap: "26px" } }, form, paste), todayList));
+}
+</script>
+<script>
+/* ============================== SETTINGS ============================== */
+function renderSettings(main) {
+  main.append(h("div", { class: "masthead" }, h("div", null, h("div", { class: "eyebrow" }, "Administration"), h("h1", { class: "date" }, "Settings")), feedMeta()));
+  const tabs = [["profile", "My profile"], ["users", "Users", "manageUsers"], ["roles", "Roles", "manageUsers"], ["stores", "Stores", "manageStores"], ["rules", "Rules & sources"], ["appearance", "Appearance"]]
+    .filter(t => !t[2] || perm(t[2]));
+  if (!tabs.some(t => t[0] === state.settingsTab)) state.settingsTab = tabs[0][0];
+  const nav = h("div", { class: "snav" }, tabs.map(([id, label]) => h("button", { class: id === state.settingsTab ? "on" : "", onclick: () => { state.settingsTab = id; render(); } }, label)));
+  const body = h("div", { class: "adm" });
+  ({ profile: settingsProfile, users: settingsUsers, roles: settingsRoles, stores: settingsStores, rules: settingsRules, appearance: settingsAppearance })[state.settingsTab](body);
+  main.append(h("div", { class: "section settings" }, nav, body));
+}
+function settingsProfile(body) {
+  const u = state.user || {};
+  const name = h("input", { type: "text", value: u.name || "" });
+  const msg = h("span", { class: "muted" });
+  body.append(h("section", { class: "section", style: { marginTop: 0 } }, h("header", null, h("h2", null, "My profile")),
+    h("div", { class: "form", style: { display: "grid", gap: "14px", maxWidth: "420px" } },
+      h("label", { class: "field" }, h("span", null, "Name"), name),
+      h("label", { class: "field" }, h("span", null, "Email"), h("input", { type: "text", value: u.email || "", disabled: true })),
+      h("label", { class: "field" }, h("span", null, "Role"), h("input", { type: "text", value: roleName(u.role), disabled: true })),
+      h("label", { class: "field" }, h("span", null, "Access"), h("input", { type: "text", value: u.role === "admin" ? "All countries and stores" : (u.countries || []).join(", ") + (u.allStores === false ? " · " + (u.stores || []).length + " stores" : " · all stores"), disabled: true })),
+      h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
+        h("button", { class: "btn solid", onclick: async () => { try { await DB.updateUser(u.uid, { name: name.value.trim() }); u.name = name.value.trim(); msg.textContent = "Saved."; render(); } catch (e) { msg.textContent = e.message; } } }, "Save"),
+        FIREBASE_CONFIG ? h("button", { class: "btn", onclick: async () => { await DB.sendReset(u.email); toast("Password reset email sent"); } }, "Email me a password reset") : null, msg))));
+}
+function settingsUsers(body) {
+  const sec = h("section", { class: "section", style: { marginTop: 0 } },
+    h("header", null, h("h2", null, "Users"), h("span", { class: "sub" }, "Create accounts for colleagues, set their role and what they can see."),
+      h("div", { class: "tools" }, h("button", { class: "btn solid", onclick: () => openUserEditor(null) }, "+ Create account"))));
+  const tbl = h("table", null, h("thead", null, h("tr", null, h("th", null, "Name"), h("th", null, "Email"), h("th", null, "Role"), h("th", null, "Access"), h("th", null, "Status"), h("th", null, ""))));
+  const tb = h("tbody", null, h("tr", null, h("td", { colspan: 6, class: "muted" }, "Loading…")));
+  tbl.append(tb); sec.append(tbl); body.append(sec);
+  DB.loadUsers().then(users => {
+    state.users = users.sort((a, b) => (a.role === "pending" ? 0 : 1) - (b.role === "pending" ? 0 : 1) || (a.name || a.email).localeCompare(b.name || b.email));
+    tb.replaceChildren(...users.map(u => {
+      const ri = roleInfo(u.role);
+      const cls = u.role === "admin" ? "admin" : (!u.role || u.role === "pending" || !ri) ? "pending" : (ri.active === false ? "off" : "");
+      const access = u.role === "admin" ? "Everything" : [(u.countries || []).join(" + ") || "no country", u.allStores === false ? (u.stores || []).length + " stores" : "all stores"].join(" · ");
+      const status = u.locked ? h("span", { class: "chip crit" }, "Locked") : u.active === false ? h("span", { class: "chip" }, "Inactive") : h("span", { class: "chip good" }, "Active");
+      return h("tr", null, h("td", null, u.name || h("span", { class: "muted" }, "—")), h("td", { class: "mono", style: { fontSize: "12.5px" } }, u.email),
+        h("td", null, h("span", { class: "rolepill " + cls }, roleName(u.role))), h("td", { class: "acc" }, access), h("td", null, status),
+        h("td", null, h("button", { class: "btn sm", onclick: () => openUserEditor(u) }, "Edit")));
+    }));
+    if (!users.length) tb.append(h("tr", null, h("td", { colspan: 6, class: "muted" }, "No users yet.")));
+  }).catch(e => tb.replaceChildren(h("tr", null, h("td", { colspan: 6, class: "neg" }, "Could not load users: " + e.message))));
+}
+function roleOptions(current) {
+  const opts = [["admin", "Administrator"]];
+  for (const [id, r] of Object.entries({ ...BUILTIN_ROLES, ...state.roles })) if (id !== "admin" && r.active !== false) opts.push([id, r.name || id]);
+  opts.push(["pending", "Pending approval (no access)"]);
+  if (current && !opts.some(o => o[0] === current)) opts.push([current, roleName(current) + " (inactive role)"]);
+  return opts;
+}
+function storePicker(selected, countries) {
+  const set = new Set(selected || []);
+  const wrap = h("div", { style: { display: "grid", gap: "4px", maxHeight: "220px", overflowY: "auto", border: "1px solid var(--rule)", borderRadius: "6px", padding: "8px 10px" } });
+  const draw = () => {
+    wrap.replaceChildren(...COUNTRIES.filter(c => countries().includes(c.id)).map(c => [h("div", { class: "eyebrow", style: { margin: "6px 0 2px" } }, c.name),
+      ...Object.values(state.stores).filter(s => s.country === c.id && s.active !== false).sort((a, b) => a.code.localeCompare(b.code)).map(s =>
+        h("label", { style: { display: "flex", gap: "8px", alignItems: "center", fontSize: "13px" } },
+          h("input", { type: "checkbox", checked: set.has(s.code), onchange: e => e.target.checked ? set.add(s.code) : set.delete(s.code) }), h("span", { class: "mono" }, s.code), h("span", { class: "muted" }, s.name)))]));
+    if (!wrap.children.length) wrap.append(h("span", { class: "muted" }, "Tick a country first."));
+  };
+  draw();
+  return { el: wrap, value: () => [...set], redraw: draw };
+}
+function openUserEditor(u) {
+  const isNew = !u; const me = state.user || {};
+  const isSelf = u && u.uid === me.uid;
+  const guarded = !isNew && !isSelf && u.role === "admin" && me.role !== "admin";
+  const email = h("input", { type: "email", value: u ? u.email : "", disabled: !isNew, placeholder: "name@iora.com.my" });
+  const name = h("input", { type: "text", value: u ? u.name || "" : "" });
+  const pw = h("input", { type: "text", value: isNew ? genPassword() : "", autocomplete: "off" });
+  const roleSel = h("select", { disabled: isSelf || guarded }, roleOptions(u ? u.role : null).map(([v, t]) => h("option", { value: v, selected: (u ? u.role : "ops") === v }, t)));
+  const cSet = new Set(u ? u.countries || [] : ["SG"]);
+  const picker = storePicker(u ? u.stores : [], () => [...cSet]);
+  const allStores = h("button", { class: "switch " + (!u || u.allStores !== false ? "on" : ""), type: "button", onclick: e => { e.target.classList.toggle("on"); picker.el.style.display = e.target.classList.contains("on") ? "none" : ""; } });
+  picker.el.style.display = allStores.classList.contains("on") ? "none" : "";
+  const countries = h("div", { style: { display: "flex", gap: "14px" } }, COUNTRIES.map(c => h("label", { style: { display: "flex", gap: "6px", alignItems: "center" } },
+    h("input", { type: "checkbox", checked: cSet.has(c.id), disabled: isSelf, onchange: e => { e.target.checked ? cSet.add(c.id) : cSet.delete(c.id); picker.redraw(); } }), c.name)));
+  const active = h("button", { class: "switch " + (!u || u.active !== false ? "on" : ""), type: "button", disabled: isSelf, onclick: e => e.target.classList.toggle("on") });
+  const locked = h("button", { class: "switch " + (u && u.locked ? "on" : ""), type: "button", disabled: isSelf, onclick: e => e.target.classList.toggle("on") });
+  const sendReset = h("input", { type: "checkbox", checked: true });
+  const err = h("div", { class: "err" }), ok = h("div", { class: "ok" });
+  async function save() {
+    err.textContent = ""; ok.textContent = "";
+    const profile = { name: name.value.trim(), role: roleSel.value, countries: [...cSet], allStores: allStores.classList.contains("on"), stores: allStores.classList.contains("on") ? [] : picker.value(), active: active.classList.contains("on"), locked: locked.classList.contains("on") };
+    try {
+      if (isNew) {
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value.trim())) { err.textContent = "Enter a valid email address."; return; }
+        if (pw.value.length < 8) { err.textContent = "Temporary password needs at least 8 characters."; return; }
+        await DB.createUser(email.value.trim(), pw.value, profile);
+        if (sendReset.checked && FIREBASE_CONFIG) { try { await DB.sendReset(email.value.trim()); } catch (e) { console.warn(e); } }
+        ok.textContent = "Account created." + (sendReset.checked && FIREBASE_CONFIG ? " A set-your-password email was sent." : " Share the temporary password with them in person.");
+      } else {
+        if (isSelf) { delete profile.role; delete profile.countries; delete profile.active; delete profile.locked; }
+        await DB.updateUser(u.uid, profile);
+        if (isSelf) Object.assign(state.user, profile);
+        ok.textContent = "Saved.";
+      }
+      setTimeout(() => { closeDrawer(); render(); }, 700);
+    } catch (e) { err.textContent = (e && e.message) || String(e); }
+  }
+  openDrawer([
+    h("div", { class: "eyebrow" }, isNew ? "New account" : "Edit account"),
+    h("h3", null, isNew ? "Create an account" : (u.name || u.email)),
+    h("div", { class: "dsub" }, isNew ? "The person signs in with this email and the temporary password, or with the set-password email." : isSelf ? "This is you — role, countries and status are protected." : guarded ? "Only an Administrator can change another Administrator." : "Changes apply the next time they load the dashboard."),
+    h("div", { class: "form" },
+      h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Email"), email), h("label", { class: "field" }, h("span", null, "Name"), name)),
+      isNew ? h("label", { class: "field" }, h("span", null, "Temporary password"), pw, h("span", { class: "hint" }, "Generated for you; change it if you like. Shown only here.")) : null,
+      isNew && FIREBASE_CONFIG ? h("label", { style: { display: "flex", gap: "8px", alignItems: "center", fontSize: "13px" } }, sendReset, "Also email them a link to set their own password") : null,
+      h("label", { class: "field" }, h("span", null, "Role"), roleSel),
+      h("div", { class: "field" }, h("span", null, "Countries"), countries),
+      h("div", { class: "field" }, h("span", null, "Stores"), h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, allStores, "All stores in those countries"), picker.el),
+      h("div", { class: "two" }, h("div", { class: "field" }, h("span", null, "Active"), h("div", null, active)), h("div", { class: "field" }, h("span", null, "Locked"), h("div", null, locked)))),
+    h("div", { class: "actions" }, h("button", { class: "btn solid", onclick: save, disabled: guarded }, isNew ? "Create account" : "Save"),
+      !isNew && FIREBASE_CONFIG ? h("button", { class: "btn", onclick: async () => { await DB.sendReset(u.email); toast("Reset email sent to " + u.email); } }, "Send password reset") : null,
+      !isNew && !isSelf && !guarded ? h("button", { class: "btn danger", onclick: async () => { if (!confirm("Remove " + u.email + "'s access?")) return; await DB.deleteUser(u.uid); closeDrawer(); render(); } }, "Remove access") : null,
+      err, ok),
+    !isNew && FIREBASE_CONFIG ? h("p", { class: "muted", style: { fontSize: "12px", marginTop: "20px" } }, "Removing access deletes the profile; the sign-in record itself is removed in the Firebase console → Authentication if you want the email reusable.") : null,
+  ]);
+}
+function genPassword() { const a = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; const r = crypto.getRandomValues(new Uint32Array(12)); for (const x of r) s += a[x % a.length]; return s; }
+
+function settingsRoles(body) {
+  const sec = h("section", { class: "section", style: { marginTop: 0 } },
+    h("header", null, h("h2", null, "Roles"), h("span", { class: "sub" }, "What each role may do. Administrator is fixed; the others can be edited or added to."),
+      h("div", { class: "tools" }, h("button", { class: "btn solid", onclick: () => openRoleEditor(null) }, "+ New role"))));
+  const all = [["admin", BUILTIN_ROLES.admin], ...Object.entries({ ...BUILTIN_ROLES, ...state.roles }).filter(([id]) => id !== "admin")];
+  const tbl = h("table", null, h("thead", null, h("tr", null, h("th", null, "Role"), Object.values(PERM_LABEL).map(l => h("th", null, l)), h("th", null, "Status"), h("th", null, ""))),
+    h("tbody", null, all.map(([id, r]) => h("tr", null, h("td", null, h("b", null, r.name || id), r.builtin ? h("span", { class: "acc" }, " built-in") : null),
+      Object.keys(PERM_LABEL).map(p => h("td", null, h("span", { class: "perm" }, r.perms && r.perms[p] ? "✓" : h("span", { class: "muted" }, "·")))),
+      h("td", null, r.active === false ? h("span", { class: "chip" }, "Inactive") : h("span", { class: "chip good" }, "Active")),
+      h("td", null, id === "admin" ? h("span", { class: "muted" }, "🔒") : h("button", { class: "btn sm", onclick: () => openRoleEditor(id, r) }, "Edit"))))));
+  sec.append(tbl); body.append(sec);
+}
+function openRoleEditor(id, data) {
+  const isNew = !id; const builtin = !!(BUILTIN_ROLES[id] && BUILTIN_ROLES[id].builtin);
+  const name = h("input", { type: "text", value: data ? data.name || "" : "", disabled: builtin });
+  const perms = {};
+  const rows = Object.entries(PERM_LABEL).map(([p, l]) => { perms[p] = h("button", { type: "button", class: "switch " + (data && data.perms && data.perms[p] ? "on" : (isNew && p === "view" ? "on" : "")), onclick: e => e.target.classList.toggle("on") }); return h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, perms[p], l); });
+  const active = h("button", { type: "button", class: "switch " + (!data || data.active !== false ? "on" : ""), onclick: e => e.target.classList.toggle("on") });
+  const err = h("div", { class: "err" });
+  async function save() {
+    const nm = name.value.trim(); if (!nm) { err.textContent = "Give the role a name."; return; }
+    const rid = isNew ? nm.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : id;
+    if (isNew && (!rid || ["admin", "pending"].includes(rid) || state.roles[rid] || BUILTIN_ROLES[rid])) { err.textContent = "That name is reserved or already exists."; return; }
+    const doc = { name: nm, active: active.classList.contains("on"), perms: Object.fromEntries(Object.keys(PERM_LABEL).map(p => [p, perms[p].classList.contains("on")])) };
+    try { await DB.saveRole(rid, doc); state.roles[rid] = doc; closeDrawer(); render(); } catch (e) { err.textContent = e.message; }
+  }
+  openDrawer([h("div", { class: "eyebrow" }, isNew ? "New role" : "Edit role"), h("h3", null, isNew ? "Create a role" : (data.name || id)),
+    h("div", { class: "dsub" }, "Changes apply the next time users with this role load the dashboard."),
+    h("div", { class: "form" }, h("label", { class: "field" }, h("span", null, "Role name"), name), h("div", { class: "field" }, h("span", null, "Permissions"), ...rows),
+      h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, active, "Active (inactive roles lose access until re-enabled)")),
+    h("div", { class: "actions" }, h("button", { class: "btn solid", onclick: save }, isNew ? "Create role" : "Save"),
+      !isNew && !builtin ? h("button", { class: "btn danger", onclick: async () => { if (!confirm("Delete this role? Its users go back to Pending.")) return; await DB.deleteRole(id); delete state.roles[id]; closeDrawer(); render(); } }, "Delete") : null, err)]);
+}
+
+function storeStatusChip(s, today) {
+  today = today || todayStr();
+  if (s.active === false) return h("span", { class: "chip" }, "Not tracked");
+  if (s.closedOn && s.closedOn < today) return h("span", { class: "chip" }, "Closed " + dShort(s.closedOn));
+  if (s.closedOn) return h("span", { class: "chip warn" }, "Closes " + dShort(s.closedOn));
+  if (s.openedOn && s.openedOn > today) return h("span", { class: "chip warn" }, "Opens " + dShort(s.openedOn));
+  return h("span", { class: "chip good" }, "Open");
+}
+function settingsStores(body) {
+  const q = h("input", { class: "input search", placeholder: "Find a store…" });
+  const sec = h("section", { class: "section", style: { marginTop: 0 } },
+    h("header", null, h("h2", null, "Stores"), h("span", { class: "sub" }, "The list of stores the report checks. Usually the store list comes from the system feed; edit here when a store opens, closes or is renamed."),
+      h("div", { class: "tools" }, q, h("button", { class: "btn solid", onclick: () => openStoreEditor(null) }, "+ Add store"))));
+  // Locations the system feed delivered to that are not in this list (reported by the feed job).
+  const unknown = [];
+  for (const c of COUNTRIES) for (const loc of ((state.feed[c.id] || {}).unknown || [])) if (!state.stores[loc]) unknown.push([loc, c.id]);
+  if (unknown.length) sec.append(h("div", { class: "notice", style: { marginBottom: "12px" } },
+    h("b", null, "Seen in the system but not in this list: "), "the warehouse sent stock to these locations. If one is a store, add it. ",
+    h("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px", marginTop: "8px" } }, unknown.map(([loc, c]) =>
+      h("button", { class: "btn sm", onclick: () => openStoreEditor(null, { code: loc, country: c }) }, "+ " + loc + " (" + c + ")")))));
+  sec.append(h("div", { class: "tile-note", style: { marginBottom: "10px" } },
+    "Codes must match the location code the warehouse sends to (the “to location” in SWIMS). ",
+    "When a store closes, set its closing date instead of switching it off: its past days stay in the report and it drops out from the day after. ",
+    "“Not tracked” is for locations that never scan receipts (e.g. outlets handled by another system)."));
+  const wrap = h("div"); sec.append(wrap); body.append(sec);
+  const draw = () => {
+    const f = q.value.trim().toLowerCase();
+    const list = Object.values(state.stores).filter(s => !f || s.code.toLowerCase().includes(f) || (s.name || "").toLowerCase().includes(f)).sort((a, b) => a.country.localeCompare(b.country) || BRAND_ORDER.indexOf(a.brand) - BRAND_ORDER.indexOf(b.brand) || a.code.localeCompare(b.code));
+    const today = todayStr();
+    wrap.replaceChildren(h("div", { class: "tablewrap" }, h("table", null, h("thead", null, h("tr", null, h("th", null, "Code"), h("th", null, "Name"), h("th", null, "Country"), h("th", null, "Brand"), h("th", null, "Opened"), h("th", null, "Status"), h("th", null, ""))),
+      h("tbody", null, list.map(s => h("tr", { style: s.active === false || (s.closedOn && s.closedOn < today) ? { opacity: ".6" } : null },
+        h("td", { class: "mono" }, s.code), h("td", null, s.name), h("td", null, s.country), h("td", null, BRAND_LABEL[s.brand] || s.brand),
+        h("td", { class: "muted" }, s.openedOn ? dShort(s.openedOn) + " " + s.openedOn.slice(0, 4) : ""),
+        h("td", null, storeStatusChip(s, today)),
+        h("td", null, h("button", { class: "btn sm", onclick: () => openStoreEditor(s) }, "Edit"))))))));
+  };
+  q.addEventListener("input", draw); draw();
+}
+function openStoreEditor(s, prefill) {
+  const isNew = !s; const p = s || prefill || {};
+  const code = h("input", { type: "text", value: p.code || "", disabled: !isNew, placeholder: "e.g. ABJ", style: { textTransform: "uppercase" } });
+  const name = h("input", { type: "text", value: p.name || "", placeholder: "e.g. iORA Bugis Junction" });
+  const country = h("select", null, COUNTRIES.map(c => h("option", { value: c.id, selected: p.country === c.id }, c.name)));
+  const brand = h("select", null, BRAND_ORDER.map(b => h("option", { value: b, selected: p.brand === b }, BRAND_LABEL[b])));
+  const openedOn = h("input", { type: "date", value: p.openedOn || "" });
+  const closedOn = h("input", { type: "date", value: p.closedOn || "" });
+  const active = h("button", { type: "button", class: "switch " + (isNew || s.active !== false ? "on" : ""), onclick: e => e.target.classList.toggle("on") });
+  const err = h("div", { class: "err" });
+  const today = todayStr();
+  async function save() {
+    const c = code.value.trim().toUpperCase(); if (!c) { err.textContent = "Code is required."; return; }
+    if (isNew && state.stores[c]) { err.textContent = c + " is already in the list. Edit it instead."; return; }
+    if (openedOn.value && closedOn.value && closedOn.value < openedOn.value) { err.textContent = "The closing date is before the opening date."; return; }
+    const doc = { code: c, name: name.value.trim() || c, country: country.value, brand: brand.value, active: active.classList.contains("on"),
+      openedOn: openedOn.value || null, closedOn: closedOn.value || null };
+    try { await DB.saveStore(doc); state.stores[c] = doc; closeDrawer(); toast(isNew ? c + " added" : c + " saved"); render(); } catch (e) { err.textContent = e.message; }
+  }
+  openDrawer([h("div", { class: "eyebrow" }, isNew ? "New store" : "Edit store"), h("h3", null, isNew ? "Add a store" : s.code + " · " + (s.name || "")),
+    h("div", { class: "form" }, h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Code (as used by the warehouse)"), code), h("label", { class: "field" }, h("span", null, "Store name"), name)),
+      h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Country"), country), h("label", { class: "field" }, h("span", null, "Brand group"), brand)),
+      h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Opened on (optional)"), openedOn), h("label", { class: "field" }, h("span", null, "Closed on (optional)"), closedOn)),
+      h("div", { class: "tile-note" }, "Leave the dates empty for a normal open store. A closed store keeps its history and is not expected to report from the day after its closing date."),
+      isNew ? null : h("div", { style: { display: "flex", gap: "8px" } },
+        !s.closedOn ? h("button", { type: "button", class: "btn sm", onclick: () => { closedOn.value = today; } }, "Store closed today") : h("button", { type: "button", class: "btn sm", onclick: () => { closedOn.value = ""; } }, "Reopen (clear closing date)")),
+      h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, active, h("span", null, "Tracked ", h("span", { class: "muted" }, "· switch off only for locations that never scan receipts")))),
+    h("div", { class: "actions" }, h("button", { class: "btn solid", onclick: save }, isNew ? "Add store" : "Save changes"), h("button", { class: "btn", onclick: closeDrawer }, "Cancel"), err)]);
+}
+
+function settingsRules(body) {
+  const s = state.settings;
+  const tol = h("input", { type: "number", min: 0, value: s.tolerance, disabled: !perm("manageUsers") });
+  const od = h("input", { type: "number", min: 1, value: s.openDays, disabled: !perm("manageUsers") });
+  const req = h("button", { type: "button", class: "switch " + (s.requireDailyReport ? "on" : ""), disabled: !perm("manageUsers"), onclick: e => e.target.classList.toggle("on") });
+  const ss = h("button", { type: "button", class: "switch " + (s.allowSelfSignup !== false ? "on" : ""), disabled: !perm("manageUsers"), onclick: e => e.target.classList.toggle("on") });
+  const msg = h("span", { class: "muted" });
+  const feeds = h("div", { class: "feedcard" }, COUNTRIES.map(c => { const f = state.feed[c.id]; return h("div", null, h("b", null, c.name + " · SWIMS feed"),
+    h("div", { class: "ln" }, h("span", null, "Published"), h("span", null, f ? tsFmt(f.generatedAt) : "never")), h("div", { class: "ln" }, h("span", null, "BigQuery loaded"), h("span", null, f ? tsFmt(f.bqLoadedAt) : "–")),
+    h("div", { class: "ln" }, h("span", null, "Window"), h("span", null, f ? f.from + " → " + f.to : "–")), h("div", { class: "ln" }, h("span", null, "Open transfers"), h("span", null, f ? f.open.length : "–"))); }));
+  const larkMeta = h("div", { class: "feedcard" }, h("div", null, h("b", null, "Lark pull job"), h("div", { class: "ln" }, h("span", null, "Last pull"), h("span", { id: "larkPull" }, "…"))));
+  DB.loadMeta().then(m => { const el = document.getElementById("larkPull"); if (el) el.textContent = m.larkPullAt ? tsFmt(m.larkPullAt) + (m.larkPullNote ? " · " + m.larkPullNote : "") : "not set up (reports are logged by hand or pasted)"; }).catch(() => {});
+  body.append(h("section", { class: "section", style: { marginTop: 0 } }, h("header", null, h("h2", null, "Rules")),
+    h("div", { style: { display: "grid", gap: "16px", maxWidth: "520px" } },
+      h("label", { class: "field" }, h("span", null, "Mismatch tolerance (pcs)"), tol, h("span", { class: "hint" }, "Lark vs SWIMS differences up to this many pieces are not flagged.")),
+      h("label", { class: "field" }, h("span", null, "Flag open transfers after (days)"), od, h("span", { class: "hint" }, "Dispatched but not fully received for this many days → amber flag.")),
+      h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, req, "Expect a Lark report from every active store every day (except Sunday), even when nothing arrived"),
+      h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, ss, "Allow colleagues to sign up themselves (they wait as Pending until approved)"),
+      perm("manageUsers") ? h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, h("button", { class: "btn solid", onclick: async () => {
+        const doc = { tolerance: Math.max(0, +tol.value || 0), openDays: Math.max(1, +od.value || 1), requireDailyReport: req.classList.contains("on"), allowSelfSignup: ss.classList.contains("on") };
+        try { await DB.saveSettings(doc); state.settings = doc; msg.textContent = "Saved."; } catch (e) { msg.textContent = e.message; } } }, "Save rules"), msg) : null)),
+    h("section", { class: "section" }, h("header", null, h("h2", null, "Data sources"), h("span", { class: "sub" }, "SWIMS arrives through the daily BigQuery job; Lark reports are logged here, pasted, or pulled by the Lark job.")), feeds, h("div", { style: { height: "14px" } }), larkMeta,
+      h("dl", { class: "kv", style: { marginTop: "18px" } }, h("dt", null, "SWIMS pieces"), h("dd", null, "Count of EPC rows in the outlet receiving report, on the day the store scanned them (last modified date)."),
+        h("dt", null, "Open transfers"), h("dd", null, "Transfers picked at the warehouse but not in status Received: not scanned at all, Receiving In Progress, or Pending Approval."),
+        h("dt", null, "Lark pieces"), h("dd", null, "What the store wrote in the daily Lark message. Status and remark are kept as written."))));
+}
+function settingsAppearance(body) {
+  const cur = document.documentElement.dataset.theme || "cream";
+  body.append(h("section", { class: "section", style: { marginTop: 0 } }, h("header", null, h("h2", null, "Appearance")),
+    h("div", { class: "seg" }, [["cream", "Cream (easy on the eyes)"], ["light", "White"], ["dark", "Dark"]].map(([v, t]) => h("button", { class: cur === v ? "on" : "", onclick: () => { if (v === "auto") localStorage.removeItem("rl.theme"); else localStorage.setItem("rl.theme", v); applyTheme(); render(); } }, t))),
+    h("p", { class: "muted", style: { fontSize: "12.5px" } }, "Stored on this device only.")));
+}
+
+/* ============================== AUTH ============================== */
+function authSide() {
+  return h("div", { class: "side" },
+    h("div", null, h("div", { class: "eyebrow", style: { color: "rgba(244,241,234,.6)" } }, "IORA Group · Outlet receiving"),
+      h("h1", { style: { marginTop: "18px" } }, "Store Transfer ", h("em", null, "Receiving Report")),
+      h("p", null, "Every store, every day: what SWIMS says arrived, what the store reported in Lark, and why they differ.")),
+    h("div", { class: "ruled" }, h("span", null, "SG · MY"), h("span", null, "Stock transfer outlet receiving"), h("span", null, "Internal use")));
+}
+function showLogin(mode) {
+  mode = mode || "signin";
+  const email = h("input", { type: "email", placeholder: "you@iora.com.my", autocomplete: "username" });
+  const pass = h("input", { type: "password", placeholder: "••••••••", autocomplete: mode === "signup" ? "new-password" : "current-password" });
+  const err = h("div", { class: "err" }), ok = h("div", { class: "ok" });
+  async function submit(e) {
+    e.preventDefault(); err.textContent = ""; ok.textContent = "";
+    try {
+      if (mode === "signin") await auth.signInWithEmailAndPassword(email.value.trim(), pass.value);
+      else if (mode === "signup") { await auth.createUserWithEmailAndPassword(email.value.trim(), pass.value); }
+      else { await auth.sendPasswordResetEmail(email.value.trim()); ok.textContent = "Reset link sent — check your inbox."; }
+    } catch (ex) { err.textContent = friendlyAuthError(ex); }
+  }
+  const form = h("form", { onsubmit: submit },
+    h("h2", null, mode === "signin" ? "Sign in" : mode === "signup" ? "Create your account" : "Reset password"),
+    h("div", { class: "sub" }, mode === "signin" ? "Use the account your Administrator created for you." : mode === "signup" ? "An Administrator approves new accounts before they can see anything." : "We'll email you a link to choose a new password."),
+    h("label", { class: "field" }, h("span", null, "Email"), email),
+    mode !== "reset" ? h("label", { class: "field" }, h("span", null, "Password"), pass) : null,
+    h("button", { class: "btn solid", type: "submit", style: { justifyContent: "center" } }, mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link"),
+    err, ok,
+    h("div", { class: "links" },
+      mode === "signin" ? (state.settings.allowSelfSignup !== false ? h("a", { href: "#", onclick: e => { e.preventDefault(); showLogin("signup"); } }, "Create account") : h("span")) : h("a", { href: "#", onclick: e => { e.preventDefault(); showLogin("signin"); } }, "Back to sign in"),
+      mode === "signin" ? h("a", { href: "#", onclick: e => { e.preventDefault(); showLogin("reset"); } }, "Forgot password?") : null));
+  document.getElementById("root").replaceChildren(h("div", { class: "auth" }, authSide(), h("div", { class: "box" }, form)));
+  email.focus();
+}
+function friendlyAuthError(ex) {
+  const c = (ex && ex.code) || "";
+  if (c.includes("invalid-credential") || c.includes("wrong-password") || c.includes("user-not-found")) return "Email or password is incorrect.";
+  if (c.includes("email-already-in-use")) return "That email already has an account — sign in instead.";
+  if (c.includes("weak-password")) return "Password needs at least 6 characters.";
+  if (c.includes("too-many-requests")) return "Too many attempts — wait a few minutes.";
+  if (c.includes("invalid-email")) return "That email address doesn't look right.";
+  return (ex && ex.message) || String(ex);
+}
+function showGate(title, text, extra) {
+  document.getElementById("root").replaceChildren(h("div", { class: "gate" }, h("div", { class: "inner" }, h("div", { class: "eyebrow" }, "Store Transfer Receiving Report"), h("h2", null, title), h("p", null, text),
+    h("div", { style: { display: "flex", gap: "8px", justifyContent: "center" } }, extra, h("button", { class: "btn", onclick: () => auth.signOut() }, "Sign out")))));
+}
+
+/* ============================== BOOT ============================== */
+async function boot() {
+  applyTheme();
+  state.date = todayStr();
+  if (!FIREBASE_CONFIG) {
+    DB = makeDemoDB();
+    state.user = { uid: "u1", email: ADMIN_EMAIL, name: "Thian Wei", role: "admin", countries: ["SG", "MY"], allStores: true };
+    await loadAll(); return;
+  }
+  document.getElementById("root").replaceChildren(h("div", { class: "loading" }, "Opening the ledger…"));
+  const v = "10.14.1";
+  await loadScript("https://www.gstatic.com/firebasejs/" + v + "/firebase-app-compat.js");
+  await Promise.all([loadScript("https://www.gstatic.com/firebasejs/" + v + "/firebase-auth-compat.js"), loadScript("https://www.gstatic.com/firebasejs/" + v + "/firebase-firestore-compat.js")]);
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth(); fsdb = firebase.firestore();
+  DB = makeFirestoreDB();
+  try { const d = await fsdb.collection("config").doc("app").get(); if (d.exists) state.settings = { ...DEFAULT_SETTINGS, ...d.data() }; } catch (e) { /* public read may be denied before sign-in; defaults apply */ }
+  auth.onAuthStateChanged(async fbUser => {
+    if (!fbUser) { state.user = null; showLogin("signin"); return; }
+    try {
+      const ref = fsdb.collection("users").doc(fbUser.uid);
+      let snap = await ref.get();
+      if (!snap.exists) {
+        const isAdmin = (fbUser.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        await ref.set({ email: fbUser.email, name: fbUser.displayName || "", role: isAdmin ? "admin" : "pending", countries: isAdmin ? COUNTRIES.map(c => c.id) : [], allStores: true, stores: [], active: true, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        snap = await ref.get();
+      }
+      state.user = { uid: fbUser.uid, ...snap.data() };
+      const u = state.user;
+      if (u.locked) return showGate("Account locked", "An Administrator has locked this account. Contact them if that's a mistake.");
+      if (u.active === false) return showGate("Account inactive", "This account is switched off. An Administrator can reactivate it under Settings → Users.");
+      if (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role))) {
+        try { state.roles = await DB.loadRoles(); } catch (e) {}
+        if (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role))) return showGate("Waiting for approval", "You're signed in as " + u.email + ". An Administrator needs to give you a role before you can see the ledger.");
+      }
+      await loadAll();
+      if (u.role !== "admin" && !visibleCountries().length) return showGate("No country access yet", "Ask an Administrator to tick Singapore and/or Malaysia for your account.");
+    } catch (e) { console.error(e); showGate("Something went wrong", (e && e.message) || String(e)); }
+  });
+}
+window.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(); });
+boot();
+</script>
+</body>
+</html>
