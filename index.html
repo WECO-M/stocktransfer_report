@@ -844,9 +844,10 @@ function makeFirestoreDB() {
       return { country, from: p.from, to: p.to, days: p.days || {}, open: p.open || [], generatedAt: x.generatedAt && x.generatedAt.toDate(), bqLoadedAt: x.bqLoadedAt && x.bqLoadedAt.toDate() };
     },
     async loadLark(country, from, to) {
-      const snap = await col("larkReports").where("country", "==", country).where("date", ">=", from).where("date", "<=", to).get();
+      // Date range only (no composite index needed); country is filtered here.
+      const snap = await col("larkReports").where("date", ">=", from).where("date", "<=", to).get();
       const out = {};
-      snap.forEach(d => { const r = d.data(); (out[r.date] = out[r.date] || {})[r.store] = { ...r, id: d.id }; });
+      snap.forEach(d => { const r = d.data(); if (r.country !== country) return; (out[r.date] = out[r.date] || {})[r.store] = { ...r, id: d.id }; });
       return out;
     },
     async saveLark(rep) {
