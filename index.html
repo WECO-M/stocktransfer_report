@@ -191,7 +191,12 @@ button { cursor: pointer; }
 
 main { padding: 22px 28px 60px; max-width: 1640px; margin: 0 auto; min-width: 0; }
 
-.masthead { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 4px 0 14px; }
+.masthead { display: flex; align-items: center; gap: 14px 32px; flex-wrap: wrap; padding: 4px 0 16px; }
+.masthead > div:first-child { flex: none; max-width: 100%; }
+.masthead .date { white-space: nowrap; min-width: 18em; }
+.masthead .datenav { flex: none; margin-top: 18px; }
+.masthead .datenav input[type=date] { height: 36px; min-width: 156px; box-sizing: border-box; }
+.masthead .datenav .btn.icon { height: 36px; min-width: 36px; }
 .masthead .date { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1.2; margin: 2px 0 0; }
 .masthead .date em { font-style: normal; font-weight: 500; color: var(--ink-2); }
 .masthead .datenav { display: flex; gap: 6px; align-items: center; }
@@ -422,7 +427,7 @@ table.ledger td.na { color: var(--rule-strong); }
   .tabs button { padding: 7px 10px; }
   .userchip .who { display: none; }
   main { padding: 14px 12px 50px; }
-  .masthead .date { font-size: 22px; }
+  .masthead .date { font-size: 22px; min-width: 0; white-space: normal; }
   .daystrip button { flex: 0 0 80px; min-width: 80px; }
   .figures { grid-template-columns: 1fr 1fr; gap: 10px; }
   .fig .val { font-size: 24px; }
@@ -519,7 +524,7 @@ const STORE_SEED = [
   ["MCQ","MONOLOQ Clarke Quay","SG","MONOLOQ"],["MHV","MONOLOQ (MHV)","SG","MONOLOQ"],["MMS","MONOLOQ Marina Square","SG","MONOLOQ"],
   ["MTK","MONOLOQ Takashimaya","SG","MONOLOQ"],["MWA","MONOLOQ Wisma Atria","SG","MONOLOQ"],
   ["SBJ","SANS Bugis Junction","SG","SANS"],["SJ8","SANS Junction 8","SG","SANS"],["SJE","SANS JEM","SG","SANS"],
-  ["SMS","SANS Marina Square","SG","SANS"],["SPQ","SANS Paya Lebar Quarter","SG","SANS",false],["SS2","SANS Square 2","SG","SANS"],
+  ["SMS","SANS Marina Square","SG","SANS"],["SPQ","SANS Paya Lebar Quarter","SG","SANS"],["SS2","SANS Square 2","SG","SANS"],
   ["SST","SANS Suntec City","SG","SANS"],["STK","SANS Takashimaya","SG","SANS"],["SVC","SANS VivoCity","SG","SANS",false],["SWA","SANS Wisma Atria","SG","SANS"],
   ["T-ACQ","TRT @ Clarke Quay","SG","TRT"],["T-AWA","TRT @ Wisma Atria","SG","TRT"],["TBJ","TRT Bugis Junction","SG","TRT"],
   ["TCQ","TRT Clarke Quay","SG","TRT"],["THF","TRT HarbourFront Centre","SG","TRT"],["TJE","TRT JEM","SG","TRT"],
@@ -1016,7 +1021,7 @@ function masthead(sub) {
     h("button", { class: "btn icon", title: "Next day", onclick: () => setDate(addDays(d, 1)), disabled: d >= todayStr() }, "→"),
     d !== todayStr() ? h("button", { class: "btn sm", onclick: () => setDate(todayStr()) }, "Today") : null);
   return h("div", null, h("div", { class: "masthead" },
-    h("div", null, h("div", { class: "eyebrow" }, sub), h("h1", { class: "date" }, DOWL[dt.getUTCDay()], " ", h("em", null, dt.getUTCDate() + " " + MONL[dt.getUTCMonth()]), d.slice(0, 4) !== todayStr().slice(0, 4) ? " " + d.slice(0, 4) : "")),
+    h("div", null, h("div", { class: "eyebrow" }, sub), h("h1", { class: "date" }, DOWL[dt.getUTCDay()], " ", h("em", null, dt.getUTCDate() + " " + MONL[dt.getUTCMonth()] + " " + d.slice(0, 4)))),
     nav, feedMeta()), dayStrip());
 }
 
