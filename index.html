@@ -1471,11 +1471,11 @@ function genPassword() { const a = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVW
 
 function settingsRoles(body) {
   const sec = h("section", { class: "section", style: { marginTop: 0 } },
-    h("header", null, h("h2", null, "Roles"), h("span", { class: "sub" }, "What each role may do. Administrator is fixed; the others can be edited or added to."),
+    h("header", null, h("h2", null, "Roles"), h("span", { class: "sub" }, "What each role may do. Administrator is fixed; the others can be renamed, edited or added to."),
       h("div", { class: "tools" }, h("button", { class: "btn solid", onclick: () => openRoleEditor(null) }, "+ New role"))));
   const all = [["admin", BUILTIN_ROLES.admin], ...Object.entries({ ...BUILTIN_ROLES, ...state.roles }).filter(([id]) => id !== "admin")];
   const tbl = h("table", null, h("thead", null, h("tr", null, h("th", null, "Role"), Object.values(PERM_LABEL).map(l => h("th", null, l)), h("th", null, "Status"), h("th", null, ""))),
-    h("tbody", null, all.map(([id, r]) => h("tr", null, h("td", null, h("b", null, r.name || id), r.builtin ? h("span", { class: "acc" }, " built-in") : null),
+    h("tbody", null, all.map(([id, r]) => h("tr", null, h("td", null, h("b", null, r.name || id), (r.builtin || (BUILTIN_ROLES[id] && BUILTIN_ROLES[id].builtin)) ? h("span", { class: "acc" }, " built-in") : null),
       Object.keys(PERM_LABEL).map(p => h("td", null, h("span", { class: "perm" }, r.perms && r.perms[p] ? "✓" : h("span", { class: "muted" }, "·")))),
       h("td", null, r.active === false ? h("span", { class: "chip" }, "Inactive") : h("span", { class: "chip good" }, "Active")),
       h("td", null, id === "admin" ? h("span", { class: "muted" }, "🔒") : h("button", { class: "btn sm", onclick: () => openRoleEditor(id, r) }, "Edit"))))));
@@ -1483,7 +1483,7 @@ function settingsRoles(body) {
 }
 function openRoleEditor(id, data) {
   const isNew = !id; const builtin = !!(BUILTIN_ROLES[id] && BUILTIN_ROLES[id].builtin);
-  const name = h("input", { type: "text", value: data ? data.name || "" : "", disabled: builtin });
+  const name = h("input", { type: "text", value: data ? data.name || "" : "", disabled: id === "admin" });
   const perms = {};
   const rows = Object.entries(PERM_LABEL).map(([p, l]) => { perms[p] = h("button", { type: "button", class: "switch " + (data && data.perms && data.perms[p] ? "on" : (isNew && p === "view" ? "on" : "")), onclick: e => e.target.classList.toggle("on") }); return h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, perms[p], l); });
   const active = h("button", { type: "button", class: "switch " + (!data || data.active !== false ? "on" : ""), onclick: e => e.target.classList.toggle("on") });
