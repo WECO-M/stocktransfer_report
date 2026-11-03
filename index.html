@@ -106,6 +106,10 @@ button { cursor: pointer; }
   background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 8px;
   padding: 8px 11px; color: var(--ink); width: 100%;
 }
+.field input[type="checkbox"], .field input[type="radio"] { width: 18px; height: 18px; padding: 0; flex: none; margin: 0; accent-color: var(--swims); cursor: pointer; }
+.tickrow { display: flex; gap: 10px; align-items: center; font-size: 13.5px; padding: 8px 8px; border-radius: 8px; cursor: pointer; user-select: none; }
+.tickrow:hover { background: rgba(15,23,42,.06); }
+.pickbar { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; padding: 8px 4px; background: var(--surface); border-bottom: 1px solid var(--rule); font-size: 12.5px; }
 .field input:focus, .field select:focus, .field textarea:focus, .input:focus { outline: 2px solid var(--swims); outline-offset: 0; border-color: transparent; }
 .field textarea { min-height: 72px; resize: vertical; font-family: var(--sans); }
 .field .hint { font-size: 12px; color: var(--muted); }
@@ -493,7 +497,7 @@ const FIREBASE_CONFIG = {
 const ADMIN_EMAIL = "ng_thianwei@iora.com.my";
 const COUNTRIES = [{ id: "SG", name: "Singapore" }, { id: "MY", name: "Malaysia" }];
 const BRAND_ORDER = ["iORA", "SANS", "TRT", "MONOLOQ", "JUBA"];
-const BRAND_LABEL = { iORA: "iORA", SANS: "SANS & SANS", TRT: "The Restyle Trait", MONOLOQ: "MONOLOQ", JUBA: "JUBA" };
+const BRAND_LABEL = { iORA: "iORA", SANS: "SANS & SANS", TRT: "TRT", MONOLOQ: "MONOLOQ", JUBA: "JUBA" };
 const RAIL_DAYS = 14;          // days listed in the left rail
 const MATRIX_DAYS = 28;        // days in the stores x days matrix
 const FEED_STALE_HOURS = 30;   // SWIMS feed older than this = amber dot
@@ -642,9 +646,11 @@ function perm(p) {
 function canSeeCountry(c) { if (!FIREBASE_CONFIG || !state.user || state.user.role === "admin") return true; return (state.user.countries || []).includes(c); }
 function canSeeStore(code) {
   if (!FIREBASE_CONFIG || !state.user || state.user.role === "admin") return true;
+  if (state.user.allBrands === false && !(state.user.brands || []).includes(brandOf(code))) return false;
   if (state.user.allStores !== false) return true;
   return (state.user.stores || []).includes(code);
 }
+function brandAccess(u) { return u.allBrands === false ? ((u.brands || []).map(b => BRAND_LABEL[b] || b).join(", ") || "no brand") : "all brands"; }
 function visibleCountries() { return COUNTRIES.filter(c => canSeeCountry(c.id)); }
 
 /* ============================== RECONCILIATION ============================== */
@@ -1339,7 +1345,7 @@ function settingsProfile(body) {
       h("label", { class: "field" }, h("span", null, "Name"), name),
       h("label", { class: "field" }, h("span", null, "Email"), h("input", { type: "text", value: u.email || "", disabled: true })),
       h("label", { class: "field" }, h("span", null, "Role"), h("input", { type: "text", value: roleName(u.role), disabled: true })),
-      h("label", { class: "field" }, h("span", null, "Access"), h("input", { type: "text", value: u.role === "admin" ? "All countries and stores" : (u.countries || []).join(", ") + (u.allStores === false ? " · " + (u.stores || []).length + " stores" : " · all stores"), disabled: true })),
+      h("label", { class: "field" }, h("span", null, "Access"), h("input", { type: "text", value: u.role === "admin" ? "All countries and stores" : (u.countries || []).join(", ") + " · " + brandAccess(u) + (u.allStores === false ? " · " + (u.stores || []).length + " stores" : " · all stores"), disabled: true })),
       h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } },
         h("button", { class: "btn solid", onclick: async () => { try { await DB.updateUser(u.uid, { name: name.value.trim() }); u.name = name.value.trim(); msg.textContent = "Saved."; render(); } catch (e) { msg.textContent = e.message; } } }, "Save"),
         FIREBASE_CONFIG ? h("button", { class: "btn", onclick: async () => { await DB.sendReset(u.email); toast("Password reset email sent"); } }, "Email me a password reset") : null, msg))));
@@ -1356,7 +1362,7 @@ function settingsUsers(body) {
     tb.replaceChildren(...users.map(u => {
       const ri = roleInfo(u.role);
       const cls = u.role === "admin" ? "admin" : (!u.role || u.role === "pending" || !ri) ? "pending" : (ri.active === false ? "off" : "");
-      const access = u.role === "admin" ? "Everything" : [(u.countries || []).join(" + ") || "no country", u.allStores === false ? (u.stores || []).length + " stores" : "all stores"].join(" · ");
+      const access = u.role === "admin" ? "Everything" : [(u.countries || []).join(" + ") || "no country", brandAccess(u), u.allStores === false ? (u.stores || []).length + " stores" : "all stores"].join(" · ");
       const status = u.locked ? h("span", { class: "chip crit" }, "Locked") : u.active === false ? h("span", { class: "chip" }, "Inactive") : h("span", { class: "chip good" }, "Active");
       return h("tr", null, h("td", null, u.name || h("span", { class: "muted" }, "—")), h("td", { class: "mono", style: { fontSize: "12.5px" } }, u.email),
         h("td", null, h("span", { class: "rolepill " + cls }, roleName(u.role))), h("td", { class: "acc" }, access), h("td", null, status),
@@ -1372,15 +1378,23 @@ function roleOptions(current) {
   if (current && !opts.some(o => o[0] === current)) opts.push([current, roleName(current) + " (inactive role)"]);
   return opts;
 }
-function storePicker(selected, countries) {
+function storePicker(selected, countries, brands) {
   const set = new Set(selected || []);
-  const wrap = h("div", { style: { display: "grid", gap: "4px", maxHeight: "220px", overflowY: "auto", border: "1px solid var(--rule)", borderRadius: "6px", padding: "8px 10px" } });
+  const wrap = h("div", { style: { display: "grid", gap: "2px", maxHeight: "260px", overflowY: "auto", border: "1px solid var(--rule)", borderRadius: "8px", padding: "0 6px 8px" } });
   const draw = () => {
-    wrap.replaceChildren(...COUNTRIES.filter(c => countries().includes(c.id)).map(c => [h("div", { class: "eyebrow", style: { margin: "6px 0 2px" } }, c.name),
-      ...Object.values(state.stores).filter(s => s.country === c.id && s.active !== false).sort((a, b) => a.code.localeCompare(b.code)).map(s =>
-        h("label", { style: { display: "flex", gap: "8px", alignItems: "center", fontSize: "13px" } },
-          h("input", { type: "checkbox", checked: set.has(s.code), onchange: e => e.target.checked ? set.add(s.code) : set.delete(s.code) }), h("span", { class: "mono" }, s.code), h("span", { class: "muted" }, s.name)))]));
-    if (!wrap.children.length) wrap.append(h("span", { class: "muted" }, "Tick a country first."));
+    const shown = COUNTRIES.filter(c => countries().includes(c.id)).map(c => ({ c, list: Object.values(state.stores).filter(s => s.country === c.id && s.active !== false && (!brands || !brands() || brands().includes(s.brand))).sort((a, b) => a.code.localeCompare(b.code)) })).filter(g => g.list.length);
+    const all = shown.flatMap(g => g.list.map(s => s.code));
+    const count = h("span", { class: "muted", style: { marginRight: "auto" } });
+    const upd = () => { count.textContent = all.filter(x => set.has(x)).length + " of " + all.length + " ticked"; };
+    const tool = h("div", { class: "pickbar" }, count,
+      h("button", { type: "button", class: "btn sm", onclick: () => { all.forEach(x => set.add(x)); draw(); } }, "Select all"),
+      h("button", { type: "button", class: "btn sm", onclick: () => { all.forEach(x => set.delete(x)); draw(); } }, "Clear"));
+    upd();
+    wrap.replaceChildren(tool, ...shown.flatMap(({ c, list }) => [h("div", { class: "eyebrow", style: { margin: "8px 4px 2px" } }, c.name),
+      ...list.map(s =>
+        h("label", { class: "tickrow" },
+          h("input", { type: "checkbox", checked: set.has(s.code), onchange: e => { e.target.checked ? set.add(s.code) : set.delete(s.code); upd(); } }), h("span", { class: "mono" }, s.code), h("span", { class: "muted" }, s.name)))]));
+    if (!all.length) wrap.append(h("span", { class: "muted", style: { padding: "8px 4px" } }, brands && brands() && !brands().length && countries().length ? "Tick a brand first." : "Tick a country first."));
   };
   draw();
   return { el: wrap, value: () => [...set], redraw: draw };
@@ -1394,10 +1408,15 @@ function openUserEditor(u) {
   const pw = h("input", { type: "text", value: isNew ? genPassword() : "", autocomplete: "off" });
   const roleSel = h("select", { disabled: isSelf || guarded }, roleOptions(u ? u.role : null).map(([v, t]) => h("option", { value: v, selected: (u ? u.role : "ops") === v }, t)));
   const cSet = new Set(u ? u.countries || [] : ["SG"]);
-  const picker = storePicker(u ? u.stores : [], () => [...cSet]);
-  const allStores = h("button", { class: "switch " + (!u || u.allStores !== false ? "on" : ""), type: "button", onclick: e => { e.target.classList.toggle("on"); picker.el.style.display = e.target.classList.contains("on") ? "none" : ""; } });
-  picker.el.style.display = allStores.classList.contains("on") ? "none" : "";
-  const countries = h("div", { style: { display: "flex", gap: "14px" } }, COUNTRIES.map(c => h("label", { style: { display: "flex", gap: "6px", alignItems: "center" } },
+  const bSet = new Set(u ? u.brands || [] : []);
+  const allBrands = h("button", { class: "switch " + (!u || u.allBrands !== false ? "on" : ""), type: "button", onclick: e => { e.target.classList.toggle("on"); brandBox.style.display = e.target.classList.contains("on") ? "none" : "flex"; picker.redraw(); } });
+  const picker = storePicker(u ? u.stores : [], () => [...cSet], () => allBrands.classList.contains("on") ? null : [...bSet]);
+  const brandBox = h("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px" } }, BRAND_ORDER.map(b => h("label", { class: "tickrow", style: { border: "1px solid var(--rule)", paddingRight: "14px" } },
+    h("input", { type: "checkbox", checked: bSet.has(b), onchange: e => { e.target.checked ? bSet.add(b) : bSet.delete(b); picker.redraw(); } }), BRAND_LABEL[b])));
+  brandBox.style.display = allBrands.classList.contains("on") ? "none" : "flex";
+  const allStores = h("button", { class: "switch " + (!u || u.allStores !== false ? "on" : ""), type: "button", onclick: e => { e.target.classList.toggle("on"); picker.el.style.display = e.target.classList.contains("on") ? "none" : "grid"; } });
+  picker.el.style.display = allStores.classList.contains("on") ? "none" : "grid";
+  const countries = h("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px" } }, COUNTRIES.map(c => h("label", { class: "tickrow", style: { border: "1px solid var(--rule)", paddingRight: "14px" } },
     h("input", { type: "checkbox", checked: cSet.has(c.id), disabled: isSelf, onchange: e => { e.target.checked ? cSet.add(c.id) : cSet.delete(c.id); picker.redraw(); } }), c.name)));
   const active = h("button", { class: "switch " + (!u || u.active !== false ? "on" : ""), type: "button", disabled: isSelf, onclick: e => e.target.classList.toggle("on") });
   const locked = h("button", { class: "switch " + (u && u.locked ? "on" : ""), type: "button", disabled: isSelf, onclick: e => e.target.classList.toggle("on") });
@@ -1405,7 +1424,9 @@ function openUserEditor(u) {
   const err = h("div", { class: "err" }), ok = h("div", { class: "ok" });
   async function save() {
     err.textContent = ""; ok.textContent = "";
-    const profile = { name: name.value.trim(), role: roleSel.value, countries: [...cSet], allStores: allStores.classList.contains("on"), stores: allStores.classList.contains("on") ? [] : picker.value(), active: active.classList.contains("on"), locked: locked.classList.contains("on") };
+    const brandsOn = allBrands.classList.contains("on");
+    if (!brandsOn && !bSet.size && roleSel.value !== "admin") { err.textContent = "Tick at least one brand, or switch on All brands."; return; }
+    const profile = { name: name.value.trim(), role: roleSel.value, countries: [...cSet], allBrands: brandsOn, brands: brandsOn ? [] : [...bSet], allStores: allStores.classList.contains("on"), stores: allStores.classList.contains("on") ? [] : picker.value(), active: active.classList.contains("on"), locked: locked.classList.contains("on") };
     try {
       if (isNew) {
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.value.trim())) { err.textContent = "Enter a valid email address."; return; }
@@ -1432,13 +1453,13 @@ function openUserEditor(u) {
       isNew && FIREBASE_CONFIG ? h("label", { style: { display: "flex", gap: "8px", alignItems: "center", fontSize: "13px" } }, sendReset, "Also email them a link to set their own password") : null,
       h("label", { class: "field" }, h("span", null, "Role"), roleSel),
       h("div", { class: "field" }, h("span", null, "Countries"), countries),
+      h("div", { class: "field" }, h("span", null, "Brands"), h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, allBrands, "All brands"), brandBox),
       h("div", { class: "field" }, h("span", null, "Stores"), h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, allStores, "All stores in those countries"), picker.el),
       h("div", { class: "two" }, h("div", { class: "field" }, h("span", null, "Active"), h("div", null, active)), h("div", { class: "field" }, h("span", null, "Locked"), h("div", null, locked)))),
     h("div", { class: "actions" }, h("button", { class: "btn solid", onclick: save, disabled: guarded }, isNew ? "Create account" : "Save"),
       !isNew && FIREBASE_CONFIG ? h("button", { class: "btn", onclick: async () => { await DB.sendReset(u.email); toast("Reset email sent to " + u.email); } }, "Send password reset") : null,
       !isNew && !isSelf && !guarded ? h("button", { class: "btn danger", onclick: async () => { if (!confirm("Remove " + u.email + "'s access?")) return; await DB.deleteUser(u.uid); closeDrawer(); render(); } }, "Remove access") : null,
       err, ok),
-    !isNew && FIREBASE_CONFIG ? h("p", { class: "muted", style: { fontSize: "12px", marginTop: "20px" } }, "Removing access deletes the profile; the sign-in record itself is removed in the Firebase console → Authentication if you want the email reusable.") : null,
   ]);
 }
 function genPassword() { const a = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; const r = crypto.getRandomValues(new Uint32Array(12)); for (const x of r) s += a[x % a.length]; return s; }
