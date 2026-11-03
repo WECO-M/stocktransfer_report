@@ -1333,8 +1333,8 @@ function renderLark(main) {
 /* ============================== SETTINGS ============================== */
 function renderSettings(main) {
   main.append(h("div", { class: "masthead" }, h("div", null, h("div", { class: "eyebrow" }, "Administration"), h("h1", { class: "date" }, "Settings")), feedMeta()));
-  const tabs = [["profile", "My profile"], ["users", "Users", "manageUsers"], ["roles", "Roles", "manageUsers"], ["stores", "Stores", "manageStores"], ["rules", "Rules & sources"], ["appearance", "Appearance"]]
-    .filter(t => !t[2] || perm(t[2]));
+  const tabs = [["profile", "My profile"], ["users", "Users", "manageUsers"], ["roles", "Roles", "manageUsers"], ["stores", "Stores", "manageStores"], ["rules", "Rules & sources", "admin"], ["appearance", "Appearance"]]
+    .filter(t => !t[2] || (t[2] === "admin" ? (!state.user || state.user.role === "admin") : perm(t[2])));
   if (!tabs.some(t => t[0] === state.settingsTab)) state.settingsTab = tabs[0][0];
   const nav = h("div", { class: "snav" }, tabs.map(([id, label]) => h("button", { class: id === state.settingsTab ? "on" : "", onclick: () => { state.settingsTab = id; render(); } }, label)));
   const body = h("div", { class: "adm" });
