@@ -465,6 +465,15 @@ table.ledger td.na { color: var(--rule-strong); }
 .boot .bar i { display: block; height: 100%; width: 40%; border-radius: 2px; background: #9973f8; animation: bootbar 1.4s ease-in-out infinite; }
 @keyframes bootbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
 @media (prefers-reduced-motion: reduce) { .boot * { animation: none !important; } .boot .msgs span:first-child { opacity: 1; } }
+table.cmp { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.cmp th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--rule-strong); }
+table.cmp th.num, table.cmp td.num { text-align: right; }
+table.cmp td { padding: 8px 8px; border-bottom: 1px solid var(--rule); }
+table.cmp tr.ok td.num:last-child { color: var(--good-text); font-weight: 600; }
+table.cmp tr.bad td { background: var(--wash-crit); }
+table.cmp tr.bad td.num:last-child { color: var(--critical); font-weight: 700; }
+table.cmp tr.na td { color: var(--muted); }
+.subfig { display: block; font-size: 11.5px; font-weight: 400; color: var(--muted); margin-top: 1px; white-space: nowrap; }
 /* back-to-top button (web and phone) */
 #totop { position: fixed; right: 18px; bottom: 22px; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--rule-strong); background: var(--ink); color: #fff; display: grid; place-items: center; cursor: pointer; z-index: 40; box-shadow: 0 6px 18px rgba(15,23,42,.3); opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity .2s, transform .2s; }
 #totop.show { opacity: 1; pointer-events: auto; transform: none; }
@@ -791,12 +800,30 @@ function openAsOf(country, date, code) {
 }
 // How much of a day SWIMS has loaded: "full" (BigQuery loaded after that day ended), "partial"
 // (loaded during that day), "none" (not loaded yet / no feed). Comparisons are only made on full days.
+// Newest day that actually has rows in the feed. BigQuery can be loaded on day X yet hold nothing after
+// day X-2 (source lag), so a day after this one is "not loaded", never "nothing was scanned".
+function lastDataDay(country) {
+  const f = state.feed[country]; if (!f) return null;
+  if (f._last === undefined) { const ds = Object.keys(f.days || {}); f._last = ds.length ? ds.reduce((a, b) => a > b ? a : b) : null; }
+  return f._last;
+}
 function swimsCoverage(country, date) {
   const f = state.feed[country]; if (!f) return "none";
   const loadDay = f.bqLoadedAt ? new Date(f.bqLoadedAt).toLocaleDateString("en-CA", { timeZone: TZ }) : f.to;
-  if (date < loadDay) return "full";
-  if (date === loadDay) return "partial";
-  return "none";
+  const last = lastDataDay(country);
+  if (!last || date > last) return "none";
+  return date < loadDay ? "full" : "partial";
+}
+// Which side looks wrong? Compare how consistent each side is with ITSELF (sent = received = scanned).
+function sideHint(lk, q, r, p) {
+  const sv = [lk.doTotal, lk.actualReceived, lk.scanned != null ? lk.scanned : lk.pcs].filter(x => x != null);
+  if (sv.length < 2) return null;
+  const storeOk = sv.every(x => x === sv[0]), sysOk = q === r && r === p;
+  if (storeOk && sysOk && sv[0] === q) return null;
+  if (storeOk && !sysOk) return { short: "store is consistent, system is not", text: "The store's own figures agree with each other, but the system's do not. Look at the system side first: scans may be missing, late or doubled." };
+  if (!storeOk && sysOk) return { short: "system is consistent, store is not", text: "The system's own figures agree with each other, but the store's do not. Look at the store's report first: a miscount, a typo, or pieces fixed by hand." };
+  if (storeOk && sysOk) return { short: "each side is consistent but they differ", text: "Each side agrees with itself but they differ from each other. Usually a different set of deliveries, or a scan done on another day." };
+  return { short: "both sides have differences", text: "Both sides have differences inside their own figures. Go through the deliveries one by one." };
 }
 // One record per store for a given day, joining SWIMS (feed) and Lark (reports).
 function dayRecord(country, date, code) {
@@ -810,9 +837,18 @@ function dayRecord(country, date, code) {
   const tol = state.settings.tolerance || 0;
   const over = rec.txns.filter(t => t.r > t.q);
   if (over.length) rec.flags.push({ k: "over", cls: "warn", text: "System shows more received than was sent (" + over.map(t => "+" + (t.r - t.q)).join(", ") + ")" });
-  if (cov === "full" && lk && sw && lk.pcs != null && Math.abs(lk.pcs - sw.p) > tol) {
-    const dd = lk.pcs - sw.p;
-    rec.flags.push({ k: "mismatch", cls: "crit", text: "Numbers don't match: store said " + fmt(lk.pcs) + ", system shows " + fmt(sw.p) + " (" + (dd > 0 ? "+" : "") + fmt(dd) + ")" });
+  // The store's three figures against the system's three figures (full days only).
+  //   DO total (sent)    <-> pieces sent on the deliveries scanned that day (SWIMS transferred qty)
+  //   Actually received  <-> SWIMS received qty on those deliveries
+  //   Scanned in         <-> distinct pieces scanned in (SWIMS EPC count)
+  if (cov === "full" && lk && sw) {
+    const sysQ = rec.txns.reduce((a, t) => a + (t.q || 0), 0), sysR = rec.txns.reduce((a, t) => a + (t.r || 0), 0), sysP = sw.p;
+    const scanned = lk.scanned != null ? lk.scanned : lk.pcs;
+    const rows = [{ k: "do", label: "DO total (sent)", store: lk.doTotal, system: sysQ }, { k: "act", label: "Actually received", store: lk.actualReceived, system: sysR }, { k: "scan", label: "Scanned in", store: scanned, system: sysP }];
+    for (const r of rows) { r.has = r.store != null; r.diff = r.has ? r.store - r.system : null; r.agree = r.has ? Math.abs(r.diff) <= tol : null; }
+    rec.cmp = { rows, hint: sideHint(lk, sysQ, sysR, sysP) };
+    const bad = rows.filter(r => r.has && !r.agree);
+    if (bad.length) rec.flags.push({ k: "mismatch", cls: "crit", text: "Numbers don't match: " + bad.map(r => r.label + " store " + fmt(r.store) + ", system " + fmt(r.system) + " (" + (r.diff > 0 ? "+" : "") + fmt(r.diff) + ")").join("; ") });
   }
   if (cov === "full" && lk && lk.pcs > 0 && !sw) rec.flags.push({ k: "larkonly", cls: "warn", text: "Store says it received " + fmt(lk.pcs) + " pcs, but nothing was scanned in the system" });
   // "Not reported" only once store reports exist for this country at all (rollout period stays quiet)
@@ -820,7 +856,15 @@ function dayRecord(country, date, code) {
   const isToday = date === todayStr();
   if (la && !lk && sw && sw.p > 0) rec.flags.push({ k: "norep", cls: "crit", text: isToday ? "Store hasn't sent today's report" : "Store didn't send a report" });
   if (la && !lk && !sw && cov === "full" && state.settings.requireDailyReport && dow(date) !== 0) rec.flags.push({ k: "norep", cls: "warn", text: "No daily report from the store" });
-  if (lk && (lk.status === "issue" || lk.status === "partial")) rec.flags.push({ k: "issue", cls: "crit", text: lk.status === "partial" ? "Store reported short or damaged stock" : "Store reported a problem" });
+  if (lk && (lk.status === "issue" || lk.status === "partial")) {
+    // A report pulled from Lark has all three figures: "short" = the store itself counted or scanned less than the DO.
+    const lark3 = lk.source === "lark" && lk.doTotal != null;
+    const short = lark3 && ((lk.actualReceived != null && lk.actualReceived < lk.doTotal) || (lk.scanned != null && lk.scanned < lk.doTotal));
+    rec.issueLabel = lk.status === "issue" ? "Store reported a problem"
+      : lark3 ? (short ? "Store reports a shortage" : "Store reports a difference") : "Store reported short or damaged stock";
+    rec.issueDetail = lark3 ? "DO " + fmt(lk.doTotal) + " · received " + fmt(lk.actualReceived) + " · scanned " + fmt(lk.scanned) : null;
+    rec.flags.push({ k: "issue", cls: (lark3 && !short) ? "warn" : "crit", text: rec.issueLabel + (rec.issueDetail ? " (" + rec.issueDetail + ")" : "") });
+  }
   const old = cov === "none" ? [] : open.filter(o => daysBetween(o.td, date) >= (state.settings.openDays || 2));
   const oldestDays = old.length ? Math.max(...old.map(o => daysBetween(o.td, date))) : 0;
   const oldPcs = old.reduce((a, o) => a + Math.max(0, o.q - (o.r || 0)), 0);
@@ -829,8 +873,8 @@ function dayRecord(country, date, code) {
   // One plain-language status per store (the most important thing first)
   const f = k => rec.flags.find(x => x.k === k);
   if (cov === "none" && !lk) rec.status = { cls: "muted", icon: "·", label: "System data not loaded yet", detail: "" };
-  else if (f("mismatch")) rec.status = { cls: "crit", icon: "✕", label: "Numbers don't match", detail: "Store said " + fmt(lk.pcs) + " pcs, system shows " + fmt(sw.p) };
-  else if (f("issue")) rec.status = { cls: "crit", icon: "!", label: lk.status === "partial" ? "Store reported short or damaged stock" : "Store reported a problem", detail: lk.pcs != null ? "Store said " + fmt(lk.pcs) + " pcs" + (sw ? ", system shows " + fmt(sw.p) : "") : "" };
+  else if (f("mismatch")) rec.status = { cls: "crit", icon: "✕", label: "Numbers don't match", detail: f("mismatch").text.replace(/^Numbers don't match: /, "") + (rec.cmp && rec.cmp.hint ? " — " + rec.cmp.hint.short : "") };
+  else if (f("issue")) rec.status = { cls: f("issue").cls, icon: "!", label: rec.issueLabel, detail: rec.issueDetail || (lk.pcs != null ? "Store said " + fmt(lk.pcs) + " pcs" + (sw ? ", system shows " + fmt(sw.p) : "") : "") };
   else if (f("larkonly")) rec.status = { cls: "warn", icon: "!", label: "Store says received, nothing in the system", detail: "Store said " + fmt(lk.pcs) + " pcs, but nothing was scanned in" };
   else if (f("norep")) rec.status = { cls: "crit", icon: "?", label: isToday ? "Store hasn't sent today's report" : "Store didn't send a report", detail: sw ? "System shows " + fmt(sw.p) + " pcs received" : "" };
   else if (f("open")) rec.status = { cls: "warn", icon: "⏱", label: "Stock sent " + oldestDays + " days ago, not received yet", detail: fmt(oldPcs) + " pcs on the way" + (old.length > 1 ? " in " + old.length + " deliveries" : "") };
@@ -1150,7 +1194,9 @@ function feedMeta() {
   const age = hoursAgo(f.generatedAt);
   const cls = age > FEED_STALE_HOURS * 2 ? "off" : age > FEED_STALE_HOURS ? "stale" : "";
   return h("div", { class: "meta" }, h("span", { class: "dot " + cls }), "System data updated " + tsFmt(f.generatedAt), h("br"),
-    h("span", { class: "muted" }, "covers " + dShort(f.from) + " – " + dShort(f.to)));
+    h("span", { class: "muted" }, "covers " + dShort(f.from) + " – " + dShort(lastDataDay(state.country) || f.to)),
+    (lastDataDay(state.country) || f.to) < addDays(todayStr(), -1)
+      ? [h("br"), h("span", { class: "chip warn", style: { marginTop: "4px" }, title: "The source (BigQuery) has no rows after this day yet, so later days show store reports only." }, "No system data after " + dShort(lastDataDay(state.country) || f.to) + " yet")] : null);
 }
 function masthead(sub) {
   const d = state.date; const dt = dateFrom(d);
@@ -1269,7 +1315,8 @@ function renderDay(main) {
         tb.append(h("tr", { class: "r " + (r.severity === 2 ? "issue" : r.severity === 1 ? "warn" : ""), onclick: () => openStoreDrawer(r.code) },
           h("td", null, h("span", { class: "code" }, r.code), h("span", { class: "nm" }, r.store.name)),
           h("td", { class: "num " + (r.swims ? "" : "na") }, r.swims == null ? (r.coverage === "full" ? "0" : "–") : fmt(r.swims)),
-          h("td", { class: "num " + (lp == null ? "na" : "") }, lp == null ? (lk ? "–" : "") : fmt(lp)),
+          h("td", { class: "num " + (lp == null ? "na" : "") }, lp == null ? (lk ? "–" : "") : fmt(lp),
+            lk && lk.doTotal != null && (lk.doTotal !== lk.actualReceived || (lk.scanned != null && lk.scanned !== lk.doTotal)) ? h("span", { class: "subfig" }, "DO " + fmt(lk.doTotal) + " · got " + fmt(lk.actualReceived)) : null),
           h("td", null, statusEl(r.status)),
           h("td", { class: "rem" }, lk && lk.remark ? lk.remark : h("span", { class: "muted" }, lk ? (lk.status === "received" ? "" : STATUS_LABEL[lk.status]) : ""))));
       }
@@ -1279,8 +1326,9 @@ function renderDay(main) {
   drawTable();
 }
 function exportDayCsv(recs) {
-  const rows = [["date", "country", "store", "name", "brand", "swims_pcs", "lark_pcs", "delta", "open_transfers", "open_pcs", "lark_status", "lark_remark", "flags"]];
+  const rows = [["date", "country", "store", "name", "brand", "swims_pcs", "lark_pcs", "delta", "store_do_total", "store_actual_received", "store_scanned", "system_sent", "system_received", "open_transfers", "open_pcs", "lark_status", "lark_remark", "flags"]];
   for (const r of recs) rows.push([state.date, state.country, r.code, r.store.name, r.store.brand, r.swims ?? "", r.lark ? r.lark.pcs ?? "" : "", (r.lark && r.lark.pcs != null && r.swims != null) ? r.lark.pcs - r.swims : "",
+    r.lark ? r.lark.doTotal ?? "" : "", r.lark ? r.lark.actualReceived ?? "" : "", r.lark ? r.lark.scanned ?? "" : "", r.txns.length ? r.txns.reduce((a, t) => a + (t.q || 0), 0) : "", r.txns.length ? r.txns.reduce((a, t) => a + (t.r || 0), 0) : "",
     r.open.length, r.open.reduce((a, o) => a + Math.max(0, o.q - (o.r || 0)), 0), r.lark ? r.lark.status : "", r.lark ? r.lark.remark || "" : "", r.flags.map(f => f.text).join("; ")]);
   const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\n");
   const a = h("a", { href: URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" })), download: "receiving_" + state.country + "_" + state.date + ".csv" }); a.click();
@@ -1323,15 +1371,25 @@ function openStoreDrawer(code, dateOverride) {
   const larkEl = lk ? h("div", null,
     h("div", null, h("span", { class: "chip " + (lk.status === "received" ? "good" : lk.status === "none" ? "" : "crit") }, STATUS_LABEL[lk.status] || lk.status), " ",
       h("b", { class: "mono" }, lk.pcs == null ? "–" : fmt(lk.pcs) + " pcs")),
+    lk.doTotal != null ? h("div", { class: "muted", style: { marginTop: "6px", fontSize: "13px" } }, "DO total " + fmt(lk.doTotal) + " · actually received " + fmt(lk.actualReceived) + " · scanned " + fmt(lk.scanned) + (lk.scannedOf != null ? " of " + fmt(lk.scannedOf) : "") + (lk.reports > 1 ? " · " + lk.reports + " reports added up" : "")) : null,
     lk.remark ? h("p", { style: { fontFamily: "var(--serif)", fontSize: "15px", fontStyle: "italic", margin: "10px 0 4px" } }, "“" + lk.remark + "”") : null,
     h("div", { class: "sourcetag" }, (lk.reporter ? lk.reporter + " · " : "") + "via " + (lk.source || "manual") + (lk.updatedAt ? " · " + tsFmt(lk.updatedAt) : "")))
     : h("div", { class: "muted" }, "The store has not sent a report for this day.");
   const edit = perm("logLark") ? h("button", { class: "btn sm", onclick: () => { state.view = "lark"; state.larkDraft = { date: d, store: code }; render(); closeDrawer(); } }, lk ? "Edit report" : "Log report") : null;
+  const cm = r.cmp;
+  const cmpEl = cm ? h("div", null,
+    h("table", { class: "cmp" }, h("thead", null, h("tr", null, h("th", null, ""), h("th", { class: "num" }, "Store said"), h("th", { class: "num" }, "System shows"), h("th", { class: "num" }, "Difference"))),
+      h("tbody", null, cm.rows.map(x => h("tr", { class: x.has ? (x.agree ? "ok" : "bad") : "na" },
+        h("td", null, x.label), h("td", { class: "num" }, x.has ? fmt(x.store) : "–"), h("td", { class: "num" }, fmt(x.system)),
+        h("td", { class: "num" }, x.has ? (x.agree ? "✓ agree" : (x.diff > 0 ? "+" : "") + fmt(x.diff)) : ""))))),
+    cm.hint ? h("div", { class: "notice info", style: { marginTop: "10px" } }, h("b", null, "Which side looks wrong? "), cm.hint.text) : null)
+    : h("div", { class: "muted" }, !lk ? "No store report to compare." : r.coverage !== "full" ? "Compared once the system has loaded this day." : !r.swims ? "Nothing was scanned in the system for this day." : "");
   openDrawer([
     h("div", { class: "eyebrow" }, BRAND_LABEL[st.brand] + " · " + st.country + " · " + dLong(d)),
     h("h3", null, h("span", { class: "mono" }, code), " ", st.name),
     h("div", { class: "dsub" }, statusEl(r.status, true), r.flags.length > 1 ? h("div", { style: { marginTop: "6px", display: "flex", gap: "4px", flexWrap: "wrap" } }, r.flags.slice(1).map(f => h("span", { class: "chip " + f.cls }, f.text))) : null),
     h("h4", null, "What the store reported (Lark)"), larkEl, edit ? h("div", { style: { marginTop: "10px" } }, edit) : null,
+    h("h4", null, "Store vs system, figure by figure"), cmpEl,
     h("h4", null, "Received in the system (SWIMS) this day · " + fmt(r.swims || 0) + " pcs"), txns,
     h("h4", null, "Stock sent to this store, not yet received"), open,
     h("h4", null, "Last 14 days · system vs store"), histEl,
