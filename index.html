@@ -306,6 +306,7 @@ table.ledger td.na { color: var(--rule-strong); }
 .drawer.open { transform: none; }
 .drawer h3 { font-size: 20px; font-weight: 700; margin: 4px 0 0; letter-spacing: -.01em; }
 .drawer .dsub { color: var(--muted); font-size: 12.5px; margin: 6px 0 18px; }
+.drawer h3 .dname { display: block; font-size: 14px; font-weight: 500; color: var(--ink-2); letter-spacing: 0; margin-top: 3px; }
 .drawer .close { position: absolute; top: 18px; right: 18px; background: var(--surface); border: 1px solid var(--rule-strong); border-radius: 50%; width: 32px; height: 32px; color: var(--ink-2); }
 .drawer .close:hover { background: var(--surface-2); }
 .drawer h4 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 22px 0 8px; }
@@ -1398,7 +1399,7 @@ function openStoreDrawer(code, dateOverride) {
     : h("div", { class: "muted" }, !lk ? "No store report to compare." : r.coverage !== "full" ? "Compared once the system has loaded this day." : !r.swims ? "Nothing was scanned in the system for this day." : "");
   openDrawer([
     h("div", { class: "eyebrow" }, BRAND_LABEL[st.brand] + " · " + st.country + " · " + dLong(d)),
-    h("h3", null, h("span", { class: "mono" }, code), " ", st.name),
+    h("h3", null, h("span", { class: "mono" }, code), h("span", { class: "dname" }, st.name)),
     h("div", { class: "dsub" }, statusEl(r.status, true), r.flags.length > 1 ? h("div", { style: { marginTop: "6px", display: "flex", gap: "4px", flexWrap: "wrap" } }, r.flags.slice(1).map(f => h("span", { class: "chip " + f.cls }, f.text))) : null),
     h("h4", null, "What the store reported (Lark)"), larkEl, edit ? h("div", { style: { marginTop: "10px" } }, edit) : null,
     h("h4", null, "Store vs system, figure by figure"), cmpEl,
