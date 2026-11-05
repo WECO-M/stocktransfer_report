@@ -1496,8 +1496,8 @@ function initialsOf(u) {
 const isOwner = u => !!u && String(u.email || "").toLowerCase() === ADMIN_EMAIL;
 function avatarColor(u) {
   if (isOwner(u) && (!u.color || u.color === "special")) return AV_SPECIAL;
-  if (u && u.color === "special") return AV_COLORS[0];
-  if (u && u.color) return u.color;
+  // only known colours are accepted, so a tampered value never reaches an inline style
+  if (u && AV_COLORS.includes(u.color)) return u.color;
   const s = (u && (u.email || u.name)) || "?"; let n = 0; for (const ch of s) n = (n * 31 + ch.charCodeAt(0)) >>> 0;
   return AV_COLORS[n % AV_COLORS.length];
 }
