@@ -631,7 +631,8 @@ const RAIL_DAYS = 14;          // days listed in the left rail
 const MATRIX_DAYS = 28;        // days in the stores x days matrix
 const FEED_STALE_HOURS = 30;   // SWIMS feed older than this = amber dot
 const TZ = "Asia/Singapore";
-const DEFAULT_SETTINGS = { tolerance: 0, openDays: 2, requireDailyReport: false, allowSelfSignup: true };
+// tolerance = pieces of difference nobody wants to chase; openMinPcs = an open delivery short by this many pieces or fewer is not flagged.
+const DEFAULT_SETTINGS = { tolerance: 2, openDays: 2, openMinPcs: 2, requireDailyReport: false, allowSelfSignup: true };
 const STATUS_LABEL = { received: "Received OK", none: "No delivery", partial: "Short / damaged", issue: "Problem reported" };
 
 // Store master seed. Firestore `stores` overrides this once the Administrator edits a store.
@@ -831,11 +832,15 @@ function dayRecord(country, date, code) {
   const cov = swimsCoverage(country, date);
   const sw = feed && feed.days[date] && feed.days[date][code];
   const lk = state.lark[country] && state.lark[country][date] && state.lark[country][date][code];
-  const open = openAsOf(country, date, code);
+  // Open deliveries short by only a piece or two are not worth anyone's time: keep them out of the flags and lists.
+  const openAll = openAsOf(country, date, code);
+  const minPcs = state.settings.openMinPcs != null ? state.settings.openMinPcs : 2;
+  const open = openAll.filter(o => Math.max(0, o.q - (o.r || 0)) > minPcs);
+  const openMinor = openAll.filter(o => Math.max(0, o.q - (o.r || 0)) <= minPcs);
   const st = storeOf(code);
-  const rec = { code, store: st, swims: sw ? sw.p : (cov === "full" ? null : undefined), txns: sw ? sw.t : [], lark: lk || null, open, flags: [], coverage: cov };
+  const rec = { code, store: st, swims: sw ? sw.p : (cov === "full" ? null : undefined), txns: sw ? sw.t : [], lark: lk || null, open, openMinor, flags: [], coverage: cov };
   const tol = state.settings.tolerance || 0;
-  const over = rec.txns.filter(t => t.r > t.q);
+  const over = rec.txns.filter(t => t.r - t.q > tol);
   if (over.length) rec.flags.push({ k: "over", cls: "warn", text: "System shows more received than was sent (" + over.map(t => "+" + (t.r - t.q)).join(", ") + ")" });
   // The store's three figures against the system's three figures (full days only).
   //   DO total (sent)    <-> pieces sent on the deliveries scanned that day (SWIMS transferred qty)
@@ -859,16 +864,19 @@ function dayRecord(country, date, code) {
   if (lk && (lk.status === "issue" || lk.status === "partial")) {
     // A report pulled from Lark has all three figures: "short" = the store itself counted or scanned less than the DO.
     const lark3 = lk.source === "lark" && lk.doTotal != null;
+    const figs = lark3 ? [lk.doTotal, lk.actualReceived, lk.scanned].filter(x => x != null) : [];
+    const spread = figs.length ? Math.max(...figs) - Math.min(...figs) : 0;
+    const tinyDiff = lark3 && lk.status === "partial" && spread <= tol;   // e.g. 1 piece fixed by hand: not worth a flag
     const short = lark3 && ((lk.actualReceived != null && lk.actualReceived < lk.doTotal) || (lk.scanned != null && lk.scanned < lk.doTotal));
     rec.issueLabel = lk.status === "issue" ? "Store reported a problem"
       : lark3 ? (short ? "Store reports a shortage" : "Store reports a difference") : "Store reported short or damaged stock";
     rec.issueDetail = lark3 ? "DO " + fmt(lk.doTotal) + " · received " + fmt(lk.actualReceived) + " · scanned " + fmt(lk.scanned) : null;
-    rec.flags.push({ k: "issue", cls: (lark3 && !short) ? "warn" : "crit", text: rec.issueLabel + (rec.issueDetail ? " (" + rec.issueDetail + ")" : "") });
+    if (!tinyDiff) rec.flags.push({ k: "issue", cls: (lark3 && !short) ? "warn" : "crit", text: rec.issueLabel + (rec.issueDetail ? " (" + rec.issueDetail + ")" : "") });
   }
   const old = cov === "none" ? [] : open.filter(o => daysBetween(o.td, date) >= (state.settings.openDays || 2));
   const oldestDays = old.length ? Math.max(...old.map(o => daysBetween(o.td, date))) : 0;
   const oldPcs = old.reduce((a, o) => a + Math.max(0, o.q - (o.r || 0)), 0);
-  if (old.length) rec.flags.push({ k: "open", cls: "warn", text: "Stock sent " + oldestDays + " days ago not received yet (" + fmt(oldPcs) + " pcs" + (old.length > 1 ? ", " + old.length + " deliveries" : "") + ")" });
+  if (old.length) rec.flags.push({ k: "open", cls: "warn", text: fmt(oldPcs) + " pcs still to be received from " + old.length + " deliver" + (old.length > 1 ? "ies" : "y") + ", oldest sent " + oldestDays + " days ago" });
   rec.severity = rec.flags.some(f => f.cls === "crit") ? 2 : rec.flags.length ? 1 : 0;
   // One plain-language status per store (the most important thing first)
   const f = k => rec.flags.find(x => x.k === k);
@@ -877,7 +885,7 @@ function dayRecord(country, date, code) {
   else if (f("issue")) rec.status = { cls: f("issue").cls, icon: "!", label: rec.issueLabel, detail: rec.issueDetail || (lk.pcs != null ? "Store said " + fmt(lk.pcs) + " pcs" + (sw ? ", system shows " + fmt(sw.p) : "") : "") };
   else if (f("larkonly")) rec.status = { cls: "warn", icon: "!", label: "Store says received, nothing in the system", detail: "Store said " + fmt(lk.pcs) + " pcs, but nothing was scanned in" };
   else if (f("norep")) rec.status = { cls: "crit", icon: "?", label: isToday ? "Store hasn't sent today's report" : "Store didn't send a report", detail: sw ? "System shows " + fmt(sw.p) + " pcs received" : "" };
-  else if (f("open")) rec.status = { cls: "warn", icon: "⏱", label: "Stock sent " + oldestDays + " days ago, not received yet", detail: fmt(oldPcs) + " pcs on the way" + (old.length > 1 ? " in " + old.length + " deliveries" : "") };
+  else if (f("open")) rec.status = { cls: "warn", icon: "⏱", label: fmt(oldPcs) + " pcs still to be received", detail: old.length + " deliver" + (old.length > 1 ? "ies" : "y") + " open, oldest sent " + oldestDays + " days ago" };
   else if (f("over")) rec.status = { cls: "warn", icon: "!", label: "System shows more than was sent", detail: "Check for a double scan" };
   else if (lk && lk.status === "none") rec.status = { cls: "info", icon: "–", label: "No delivery (store confirmed)", detail: "" };
   else if (lk && sw) rec.status = { cls: "good", icon: "✓", label: "All good", detail: "Store and system agree" };
@@ -1367,6 +1375,10 @@ function openStoreDrawer(code, dateOverride) {
   for (const o of r.open.sort((a, b) => a.td.localeCompare(b.td))) open.append(h("div", { class: "t" },
     h("span", { class: "no" }, o.n), h("span", { class: "q" }, fmt(Math.max(0, o.q - (o.r || 0))), h("small", null, " of " + fmt(o.q) + " pcs pending")),
     h("span", { class: "nm" }, "Warehouse " + o.w + " · " + o.d), h("span", { class: "st" }, o.s + " · dispatched " + dShort(o.td) + " (" + daysBetween(o.td, d) + "d)")));
+  if (r.openMinor && r.openMinor.length) {
+    const mp = r.openMinor.reduce((a, o) => a + Math.max(0, o.q - (o.r || 0)), 0);
+    open.append(h("div", { class: "muted", style: { padding: "10px 0", fontSize: "12.5px" } }, r.openMinor.length + " other deliver" + (r.openMinor.length > 1 ? "ies are" : "y is") + " short by only " + fmt(mp) + " pc" + (mp === 1 ? "" : "s") + " in total (" + (state.settings.openMinPcs != null ? state.settings.openMinPcs : 2) + " or fewer each), so they are not flagged."));
+  }
   const lk = r.lark;
   const larkEl = lk ? h("div", null,
     h("div", null, h("span", { class: "chip " + (lk.status === "received" ? "good" : lk.status === "none" ? "" : "crit") }, STATUS_LABEL[lk.status] || lk.status), " ",
@@ -1800,6 +1812,7 @@ function settingsRules(body) {
   const s = state.settings;
   const tol = h("input", { type: "number", min: 0, value: s.tolerance, disabled: !perm("manageUsers") });
   const od = h("input", { type: "number", min: 1, value: s.openDays, disabled: !perm("manageUsers") });
+  const om = h("input", { type: "number", min: 0, value: s.openMinPcs != null ? s.openMinPcs : 2, disabled: !perm("manageUsers") });
   const req = h("button", { type: "button", class: "switch " + (s.requireDailyReport ? "on" : ""), disabled: !perm("manageUsers"), onclick: e => e.target.classList.toggle("on") });
   const ss = h("button", { type: "button", class: "switch " + (s.allowSelfSignup !== false ? "on" : ""), disabled: !perm("manageUsers"), onclick: e => e.target.classList.toggle("on") });
   const msg = h("span", { class: "muted" });
@@ -1810,12 +1823,13 @@ function settingsRules(body) {
   DB.loadMeta().then(m => { const el = document.getElementById("larkPull"); if (el) el.textContent = m.larkPullAt ? tsFmt(m.larkPullAt) + (m.larkPullNote ? " · " + m.larkPullNote : "") : "not set up (reports are logged by hand or pasted)"; }).catch(() => {});
   body.append(h("section", { class: "section", style: { marginTop: 0 } }, h("header", null, h("h2", null, "Rules")),
     h("div", { style: { display: "grid", gap: "16px", maxWidth: "520px" } },
-      h("label", { class: "field" }, h("span", null, "Mismatch tolerance (pcs)"), tol, h("span", { class: "hint" }, "Lark vs SWIMS differences up to this many pieces are not flagged.")),
+      h("label", { class: "field" }, h("span", null, "Mismatch tolerance (pcs)"), tol, h("span", { class: "hint" }, "Store vs system differences up to this many pieces are not flagged.")),
+      h("label", { class: "field" }, h("span", null, "Ignore open deliveries short by up to (pcs)"), om, h("span", { class: "hint" }, "A delivery with only this many pieces or fewer still to be received is not flagged or listed. Raise it to hide more small gaps.")),
       h("label", { class: "field" }, h("span", null, "Flag open transfers after (days)"), od, h("span", { class: "hint" }, "Dispatched but not fully received for this many days → amber flag.")),
       h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, req, "Expect a Lark report from every active store every day (except Sunday), even when nothing arrived"),
       h("div", { style: { display: "flex", gap: "10px", alignItems: "center", fontSize: "13px" } }, ss, "Allow colleagues to sign up themselves (they wait as Pending until approved)"),
       perm("manageUsers") ? h("div", { style: { display: "flex", gap: "8px", alignItems: "center" } }, h("button", { class: "btn solid", onclick: async () => {
-        const doc = { tolerance: Math.max(0, +tol.value || 0), openDays: Math.max(1, +od.value || 1), requireDailyReport: req.classList.contains("on"), allowSelfSignup: ss.classList.contains("on") };
+        const doc = { tolerance: Math.max(0, +tol.value || 0), openDays: Math.max(1, +od.value || 1), openMinPcs: Math.max(0, +om.value || 0), requireDailyReport: req.classList.contains("on"), allowSelfSignup: ss.classList.contains("on") };
         try { await DB.saveSettings(doc); state.settings = doc; msg.textContent = "Saved."; } catch (e) { msg.textContent = e.message; } } }, "Save rules"), msg) : null)),
     h("section", { class: "section" }, h("header", null, h("h2", null, "Data sources"), h("span", { class: "sub" }, "SWIMS arrives through the daily BigQuery job; Lark reports are logged here, pasted, or pulled by the Lark job.")), feeds, h("div", { style: { height: "14px" } }), larkMeta,
       h("dl", { class: "kv", style: { marginTop: "18px" } }, h("dt", null, "SWIMS pieces"), h("dd", null, "Count of EPC rows in the outlet receiving report, on the day the store scanned them (last modified date)."),
