@@ -1776,7 +1776,7 @@ const AUDIT_OPEN_MS = 4 * 60 * 1000;
 function auditPretty(s) { if (!s) return "—"; try { return JSON.stringify(JSON.parse(s), null, 2); } catch (e) { return String(s); } }
 function settingsAudit(body) {
   const sec = h("section", { class: "section", style: { marginTop: 0 } },
-    h("header", null, h("h2", null, "Activity log"), h("span", { class: "sub" }, "Every change made in the dashboard: who, when, and the old and new values. Only you can see this page.")));
+    h("header", null, h("h2", null, "Activity log")));
   body.append(sec);
   if (!isOwner(state.user)) { sec.append(h("div", { class: "muted", style: { padding: "14px" } }, "Not available.")); return; }
   if (Date.now() >= (state.auditUntil || 0)) {
@@ -1802,10 +1802,10 @@ function settingsAudit(body) {
       }
     };
     pw.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
-    sec.append(h("div", { class: "form", style: { padding: "16px 4px", maxWidth: "420px" } },
-      h("div", { class: "dsub" }, "This page is locked. Enter your password to open it. It locks again after 4 minutes or when you leave the page."),
-      h("label", { class: "field" }, h("span", null, "Password"), pw),
-      h("div", { class: "actions" }, h("button", { class: "btn solid", onclick: go }, "Unlock"), err)));
+    sec.append(h("div", { style: { display: "grid", gap: "18px", padding: "24px 20px 28px", maxWidth: "440px" } },
+      h("div", { class: "muted", style: { fontSize: "14px", lineHeight: "1.6" } }, "This page is locked. Enter your password to open it. It locks again after 4 minutes or when you leave the page."),
+      h("label", { style: { display: "grid", gap: "8px" } }, h("span", { style: { fontSize: "13px", fontWeight: "600" } }, "Password"), pw),
+      h("div", { style: { display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" } }, h("button", { class: "btn solid", onclick: go }, "Unlock"), err)));
     return;
   }
   const rows = state.audit || [];
