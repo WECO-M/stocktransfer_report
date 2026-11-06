@@ -1168,7 +1168,9 @@ function renderTopbar() {
           h("span", { class: "caret", html: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>' })),
         state.menu ? h("div", { class: "umenu", role: "menu" },
           h("button", { role: "menuitem", onclick: () => go("profile") }, icon("lark"), "Profile"),
-          h("button", { role: "menuitem", onclick: () => go("users") }, icon("settings"), "Settings"),
+          (!state.user || state.user.role === "admin" || perm("manageUsers") || perm("manageStores"))
+            ? h("button", { role: "menuitem", onclick: () => go(perm("manageUsers") ? "users" : (perm("manageStores") ? "stores" : "rules")) }, icon("settings"), "Settings")
+            : h("button", { role: "menuitem", onclick: () => go("appearance") }, icon("settings"), "Appearance"),
           FIREBASE_CONFIG ? h("button", { role: "menuitem", class: "sep", onclick: () => { state.menu = false; auth.signOut(); } }, icon("logout"), "Sign out") : null) : null) : null));
 }
 document.addEventListener("click", e => { if (state.menu && !(e.target.closest && e.target.closest(".umenu-wrap"))) { state.menu = false; render(); } });
