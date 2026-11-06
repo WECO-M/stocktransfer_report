@@ -1780,7 +1780,7 @@ function settingsAudit(body) {
   body.append(sec);
   if (!isOwner(state.user)) { sec.append(h("div", { class: "muted", style: { padding: "14px" } }, "Not available.")); return; }
   if (Date.now() >= (state.auditUntil || 0)) {
-    const pw = h("input", { type: "password", autocomplete: "current-password", placeholder: "Your login password", style: { maxWidth: "320px" } });
+    const pw = h("input", { type: "password", autocomplete: "current-password", placeholder: "••••••••", style: { maxWidth: "320px" } });
     const err = h("div", { class: "err" });
     const go = async () => {
       err.textContent = "";
