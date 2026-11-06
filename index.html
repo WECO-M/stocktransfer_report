@@ -1022,13 +1022,36 @@ function makeDemoDB() {
     async deleteUser(uid) { const i = users.findIndex(x => x.uid === uid); if (i >= 0) users.splice(i, 1); },
     async sendReset(email) { },
     async loadSettings() { return { ...DEFAULT_SETTINGS }; }, async saveSettings(s) { },
+    async loadAudit() { return []; },
     async loadMeta() { return { larkPullAt: new Date(Date.now() - 40 * 60000), larkPullNote: "demo" }; },
   };
 }
 
+/* ---- activity log: every change goes in the same batch as an append-only auditLog entry (readable by the owner only) ---- */
+const AUDIT_HIDE = /pass|pw|token|secret/i;
+function auditJson(v) {
+  if (v === undefined || v === null) return null;
+  const s = JSON.stringify(v, (k, x) => (AUDIT_HIDE.test(k) || k === "updatedAt" || k === "createdAt") ? undefined : (x && typeof x.toDate === "function" ? x.toDate().toISOString() : x));
+  return s.length > 15000 ? s.slice(0, 15000) + "…(truncated)" : s;
+}
+async function snapData(ref) { try { const d = await ref.get(); return d.exists ? d.data() : null; } catch (e) { return null; } }
+async function writeLogged(entry, build) {
+  const b = fsdb.batch();
+  if (build) build(b);
+  const u = auth.currentUser || {};
+  b.set(fsdb.collection("auditLog").doc(), {
+    at: firebase.firestore.FieldValue.serverTimestamp(), actor: u.email || "", uid: u.uid || "",
+    action: entry.action, target: entry.target || "", id: entry.id || "", summary: entry.summary || "",
+    before: auditJson(entry.before), after: auditJson(entry.after),
+  });
+  await b.commit();
+}
+function changedKeys(before, after) { return Object.keys(after || {}).filter(k => k !== "updatedAt" && JSON.stringify((before || {})[k]) !== JSON.stringify(after[k])); }
+
 function makeFirestoreDB() {
   const col = n => fsdb.collection(n);
   const clean = o => { const r = {}; for (const [k, v] of Object.entries(o)) if (v !== undefined) r[k] = v; return r; };
+  const ts = () => firebase.firestore.FieldValue.serverTimestamp();
   return {
     demo: false,
     async loadStores() {
@@ -1038,7 +1061,13 @@ function makeFirestoreDB() {
       snap.forEach(d => { byCode[d.id] = { ...(byCode[d.id] || {}), ...d.data(), code: d.id }; });
       return Object.values(byCode);
     },
-    async saveStore(s) { await col("stores").doc(s.code).set(clean({ name: s.name, country: s.country, brand: s.brand, active: s.active, openedOn: s.openedOn || null, closedOn: s.closedOn || null, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }), { merge: true }); },
+    async saveStore(s) {
+      const ref = col("stores").doc(s.code), before = await snapData(ref);
+      const data = clean({ name: s.name, country: s.country, brand: s.brand, active: s.active, openedOn: s.openedOn || null, closedOn: s.closedOn || null });
+      const ch = changedKeys(before, data);
+      await writeLogged({ action: "store.save", target: "stores", id: s.code, summary: "Store " + s.code + (before ? " edited" + (ch.length ? ": " + ch.join(", ") : "") : " added"), before, after: data },
+        b => b.set(ref, { ...data, updatedAt: ts() }, { merge: true }));
+    },
     async loadFeed(country) {
       const d = await col("swimsFeed").doc(country).get();
       if (!d.exists) return null;
@@ -1054,12 +1083,28 @@ function makeFirestoreDB() {
     },
     async saveLark(rep) {
       const id = rep.date + "_" + rep.store;
-      await col("larkReports").doc(id).set(clean({ ...rep, updatedBy: state.user.email, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }), { merge: true });
+      const ref = col("larkReports").doc(id), before = await snapData(ref);
+      const data = clean({ ...rep, updatedBy: state.user.email });
+      await writeLogged({ action: "report.save", target: "larkReports", id, summary: "Store report " + rep.store + " · " + rep.date + (before ? " edited" : " added"), before, after: data },
+        b => b.set(ref, { ...data, updatedAt: ts() }, { merge: true }));
     },
-    async deleteLark(rep) { await col("larkReports").doc(rep.date + "_" + rep.store).delete(); },
+    async deleteLark(rep) {
+      const id = rep.date + "_" + rep.store, ref = col("larkReports").doc(id), before = await snapData(ref);
+      await writeLogged({ action: "report.delete", target: "larkReports", id, summary: "Store report " + rep.store + " · " + rep.date + " deleted", before }, b => b.delete(ref));
+    },
     async loadRoles() { const snap = await col("roles").get(); const r = {}; snap.forEach(d => r[d.id] = d.data()); return r; },
-    async saveRole(id, r) { await col("roles").doc(id).set(r); },
-    async deleteRole(id) { await col("roles").doc(id).delete(); },
+    async saveRole(id, r) {
+      const ref = col("roles").doc(id), before = await snapData(ref);
+      await writeLogged({ action: "role.save", target: "roles", id, summary: "Role " + (r.name || id) + (before ? " edited" : " added"), before, after: r }, b => b.set(ref, r));
+    },
+    async deleteRole(id) {
+      const ref = col("roles").doc(id), before = await snapData(ref);
+      await writeLogged({ action: "role.delete", target: "roles", id, summary: "Role " + ((before && before.name) || id) + " deleted", before }, b => b.delete(ref));
+    },
+    async loadAudit(limit) {
+      const snap = await col("auditLog").orderBy("at", "desc").limit(limit || 500).get();
+      return snap.docs.map(d => { const x = d.data(); return { id: d.id, ...x, at: x.at && x.at.toDate ? x.at.toDate() : null }; });
+    },
     async loadUsers() { const snap = await col("users").get(); const u = []; snap.forEach(d => u.push({ uid: d.id, ...d.data() })); return u; },
     async createUser(email, pw, profile) {
       // A second Firebase app creates the account so the Administrator stays signed in.
@@ -1067,14 +1112,28 @@ function makeFirestoreDB() {
       const cred = await second.auth().createUserWithEmailAndPassword(email, pw);
       const uid = cred.user.uid;
       await second.auth().signOut();
-      await col("users").doc(uid).set(clean({ email, ...profile, createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: state.user.email }));
+      const doc = clean({ email, ...profile, createdBy: state.user.email });   // the temporary password is never stored or logged
+      await writeLogged({ action: "user.create", target: "users", id: uid, summary: "Account created for " + email + " (role " + (profile.role || "?") + ")", after: doc },
+        b => b.set(col("users").doc(uid), { ...doc, createdAt: ts() }));
       return { uid, email, ...profile };
     },
-    async updateUser(uid, patch) { await col("users").doc(uid).update(clean(patch)); },
-    async deleteUser(uid) { await col("users").doc(uid).delete(); },   // removes access; the Auth record is removed in the Firebase console
-    async sendReset(email) { await auth.sendPasswordResetEmail(email); },
+    async updateUser(uid, patch) {
+      const ref = col("users").doc(uid), before = await snapData(ref), data = clean(patch), ch = changedKeys(before, data);
+      await writeLogged({ action: "user.update", target: "users", id: uid, summary: "User " + ((before && before.email) || uid) + " edited" + (ch.length ? ": " + ch.join(", ") : ""), before, after: data }, b => b.update(ref, data));
+    },
+    async deleteUser(uid) {   // removes access; the Auth record is removed in the Firebase console
+      const ref = col("users").doc(uid), before = await snapData(ref);
+      await writeLogged({ action: "user.delete", target: "users", id: uid, summary: "Access removed for " + ((before && before.email) || uid), before }, b => b.delete(ref));
+    },
+    async sendReset(email) {
+      await auth.sendPasswordResetEmail(email);
+      if (auth.currentUser) { try { await writeLogged({ action: "user.reset_email", target: "users", id: "", summary: "Password reset email sent to " + email }); } catch (e) { console.warn(e); } }
+    },
     async loadSettings() { const d = await col("config").doc("app").get(); return { ...DEFAULT_SETTINGS, ...(d.exists ? d.data() : {}) }; },
-    async saveSettings(s) { await col("config").doc("app").set(s, { merge: true }); },
+    async saveSettings(s) {
+      const ref = col("config").doc("app"), before = await snapData(ref), ch = changedKeys(before, s);
+      await writeLogged({ action: "settings.save", target: "config", id: "app", summary: "Rules & sources saved" + (ch.length ? ": " + ch.join(", ") : ""), before, after: s }, b => b.set(ref, s, { merge: true }));
+    },
     async loadMeta() { const d = await col("meta").doc("lark").get(); if (!d.exists) return {}; const x = d.data(); return { larkPullAt: x.lastPullAt && x.lastPullAt.toDate(), larkPullNote: x.note || "" }; },
   };
 }
@@ -1120,6 +1179,8 @@ const icon = n => h("span", { html: ICONS[n], style: { display: "inline-flex" } 
 
 function render() {
   const root = document.getElementById("root");
+  // The activity log re-locks as soon as you leave its tab.
+  if (!(state.view === "settings" && state.settingsTab === "audit")) { state.auditUntil = 0; state.audit = null; }
   if (state.loading) { root.replaceChildren(bootScreen()); return; }
   const demoBand = DB.demo ? h("div", { class: "demo-band" }, h("b", null, "Demo mode"), "Sample numbers, no sign-in. Connect Firebase (see FIREBASE-SETUP.md) to go live with real SWIMS and Lark data.") : null;
   const main = h("main");
@@ -1547,12 +1608,12 @@ function renderLark(main) {
 /* ============================== SETTINGS ============================== */
 function renderSettings(main) {
   main.append(h("div", { class: "masthead" }, h("div", null, h("div", { class: "eyebrow" }, "Administration"), h("h1", { class: "date" }, "Settings")), feedMeta()));
-  const tabs = [["profile", "My profile"], ["users", "Users", "manageUsers"], ["roles", "Roles", "manageUsers"], ["stores", "Stores", "manageStores"], ["rules", "Rules & sources", "admin"], ["appearance", "Appearance"]]
-    .filter(t => !t[2] || (t[2] === "admin" ? (!state.user || state.user.role === "admin") : perm(t[2])));
+  const tabs = [["profile", "My profile"], ["users", "Users", "manageUsers"], ["roles", "Roles", "manageUsers"], ["stores", "Stores", "manageStores"], ["rules", "Rules & sources", "admin"], ["appearance", "Appearance"], ["audit", "Activity log", "owner"]]
+    .filter(t => !t[2] || (t[2] === "owner" ? isOwner(state.user) : t[2] === "admin" ? (!state.user || state.user.role === "admin") : perm(t[2])));
   if (!tabs.some(t => t[0] === state.settingsTab)) state.settingsTab = tabs[0][0];
   const nav = h("div", { class: "snav" }, tabs.map(([id, label]) => h("button", { class: id === state.settingsTab ? "on" : "", onclick: () => { state.settingsTab = id; render(); } }, label)));
   const body = h("div", { class: "adm" });
-  ({ profile: settingsProfile, users: settingsUsers, roles: settingsRoles, stores: settingsStores, rules: settingsRules, appearance: settingsAppearance })[state.settingsTab](body);
+  ({ profile: settingsProfile, users: settingsUsers, roles: settingsRoles, stores: settingsStores, rules: settingsRules, appearance: settingsAppearance, audit: settingsAudit })[state.settingsTab](body);
   main.append(h("div", { class: "section settings" }, nav, body));
 }
 const AV_COLORS = ["#3b82f6", "#0ea5a4", "#16a34a", "#e4572e", "#db2777"];
@@ -1647,7 +1708,8 @@ function storePicker(selected, countries, brands) {
 function openUserEditor(u) {
   const isNew = !u; const me = state.user || {};
   const isSelf = u && u.uid === me.uid;
-  const guarded = !isNew && !isSelf && u.role === "admin" && me.role !== "admin";
+  const ownerRow = !isNew && isOwner(u);
+  const guarded = !isNew && !isSelf && ((u.role === "admin" && me.role !== "admin") || ownerRow);
   const email = h("input", { type: "email", value: u ? u.email : "", disabled: !isNew, placeholder: "name@iora.com.my" });
   const name = h("input", { type: "text", value: u ? u.name || "" : "" });
   const pw = h("input", { type: "text", value: isNew ? genPassword() : "", autocomplete: "off" });
@@ -1680,9 +1742,10 @@ function openUserEditor(u) {
         if (sendReset.checked && FIREBASE_CONFIG) { try { await DB.sendReset(email.value.trim()); } catch (e) { console.warn(e); } }
         ok.textContent = "Account created." + (sendReset.checked && FIREBASE_CONFIG ? " A set-your-password email was sent." : " Share the temporary password with them in person.");
       } else {
-        if (isSelf) { delete profile.role; delete profile.countries; delete profile.active; delete profile.locked; }
-        await DB.updateUser(u.uid, profile);
-        if (isSelf) Object.assign(state.user, profile);
+        // Your own profile is protected: only the name can be changed here (access fields are locked by the rules).
+        const toSave = isSelf ? { name: profile.name } : profile;
+        await DB.updateUser(u.uid, toSave);
+        if (isSelf) Object.assign(state.user, toSave);
         ok.textContent = "Saved.";
       }
       setTimeout(() => { closeDrawer(); render(); }, 700);
@@ -1691,7 +1754,7 @@ function openUserEditor(u) {
   openDrawer([
     h("div", { class: "eyebrow" }, isNew ? "New account" : "Edit account"),
     h("h3", null, isNew ? "Create an account" : (u.name || u.email)),
-    h("div", { class: "dsub" }, isNew ? "The person signs in with this email and the temporary password, or with the set-password email." : isSelf ? "This is you — role, countries and status are protected." : guarded ? "Only an Administrator can change another Administrator." : "Changes apply the next time they load the dashboard."),
+    h("div", { class: "dsub" }, isNew ? "The person signs in with this email and the temporary password, or with the set-password email." : ownerRow && !isSelf ? "This is the owner account. It is always an Administrator with full access and cannot be changed or removed." : isSelf && ownerRow ? "This is the owner account: always Administrator with full access. Only your name can be changed." : isSelf ? "This is you — role, countries and status are protected." : guarded ? "Only an Administrator can change another Administrator." : "Changes apply the next time they load the dashboard."),
     h("div", { class: "form" },
       h("div", { class: "two" }, h("label", { class: "field" }, h("span", null, "Email"), email), h("label", { class: "field" }, h("span", null, "Name"), name)),
       isNew ? h("label", { class: "field" }, h("span", null, "Temporary password"), pw, h("span", { class: "hint" }, "Generated for you; change it if you like. Shown only here.")) : null,
@@ -1706,6 +1769,70 @@ function openUserEditor(u) {
       !isNew && !isSelf && !guarded ? h("button", { class: "btn danger", onclick: async () => { if (!confirm("Remove " + u.email + "'s access?")) return; await DB.deleteUser(u.uid); closeDrawer(); render(); } }, "Remove access") : null,
       err, ok),
   ]);
+}
+/* Activity log: owner only. Opening it needs your login password again; the rules also require a sign-in within the last 5 minutes. */
+const AUDIT_GROUPS = [["", "Everything"], ["user.", "Users"], ["role.", "Roles"], ["store.", "Stores"], ["settings.", "Rules & sources"], ["report.", "Store reports"], ["account.", "Sign-ups"]];
+const AUDIT_OPEN_MS = 4 * 60 * 1000;
+function auditPretty(s) { if (!s) return "—"; try { return JSON.stringify(JSON.parse(s), null, 2); } catch (e) { return String(s); } }
+function settingsAudit(body) {
+  const sec = h("section", { class: "section", style: { marginTop: 0 } },
+    h("header", null, h("h2", null, "Activity log"), h("span", { class: "sub" }, "Every change made in the dashboard: who, when, and the old and new values. Only you can see this page.")));
+  body.append(sec);
+  if (!isOwner(state.user)) { sec.append(h("div", { class: "muted", style: { padding: "14px" } }, "Not available.")); return; }
+  if (Date.now() >= (state.auditUntil || 0)) {
+    const pw = h("input", { type: "password", autocomplete: "current-password", placeholder: "Your login password", style: { maxWidth: "320px" } });
+    const err = h("div", { class: "err" });
+    const go = async () => {
+      err.textContent = "";
+      if (!pw.value) { err.textContent = "Enter your password."; return; }
+      try {
+        if (!DB.demo) {
+          const u = auth.currentUser;
+          await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, pw.value));
+          await u.getIdToken(true);
+        }
+        pw.value = "";
+        state.audit = await DB.loadAudit(500);
+        state.auditUntil = Date.now() + AUDIT_OPEN_MS;
+        clearTimeout(state._auditT); state._auditT = setTimeout(() => { if (state.view === "settings" && state.settingsTab === "audit") render(); }, AUDIT_OPEN_MS + 500);
+        render();
+      } catch (e) {
+        pw.value = "";
+        err.textContent = /wrong-password|invalid-credential|invalid-login/.test((e && (e.code || e.message)) || "") ? "That password is not right." : /too-many/.test((e && e.code) || "") ? "Too many attempts. Wait a few minutes and try again." : ((e && e.message) || String(e));
+      }
+    };
+    pw.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
+    sec.append(h("div", { class: "form", style: { padding: "16px 4px", maxWidth: "420px" } },
+      h("div", { class: "dsub" }, "This page is locked. Enter your password to open it. It locks again after 4 minutes or when you leave the page."),
+      h("label", { class: "field" }, h("span", null, "Password"), pw),
+      h("div", { class: "actions" }, h("button", { class: "btn solid", onclick: go }, "Unlock"), err)));
+    return;
+  }
+  const rows = state.audit || [];
+  let group = "", q = "";
+  const tb = h("tbody");
+  const draw = () => {
+    const f = rows.filter(r => (!group || (r.action || "").startsWith(group)) && (!q || [r.actor, r.action, r.target, r.id, r.summary].join(" ").toLowerCase().includes(q)));
+    tb.replaceChildren(...f.flatMap(r => {
+      const detail = h("tr", { style: { display: "none" } }, h("td", { colspan: 5 }, h("div", { class: "two" },
+        h("div", null, h("div", { class: "eyebrow" }, "Before"), h("pre", { class: "mono", style: { whiteSpace: "pre-wrap", fontSize: "12px", margin: "4px 0" } }, auditPretty(r.before))),
+        h("div", null, h("div", { class: "eyebrow" }, "After"), h("pre", { class: "mono", style: { whiteSpace: "pre-wrap", fontSize: "12px", margin: "4px 0" } }, auditPretty(r.after))))));
+      const main = h("tr", { style: { cursor: "pointer" }, onclick: () => { detail.style.display = detail.style.display === "none" ? "" : "none"; } },
+        h("td", { class: "mono", style: { whiteSpace: "nowrap", fontSize: "12.5px" } }, r.at ? r.at.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "—"),
+        h("td", { style: { fontSize: "12.5px" } }, r.actor || "—"), h("td", null, h("span", { class: "chip" }, r.action || "")),
+        h("td", { class: "mono", style: { fontSize: "12px" } }, (r.target || "") + (r.id ? "/" + r.id : "")), h("td", null, r.summary || ""));
+      return [main, detail];
+    }));
+    if (!f.length) tb.append(h("tr", null, h("td", { colspan: 5, class: "muted" }, rows.length ? "No entries match." : "No activity recorded yet.")));
+    count.textContent = f.length + " of " + rows.length + " entries (latest 500)";
+  };
+  const count = h("span", { class: "muted", style: { marginRight: "auto" } });
+  const sel = h("select", { onchange: e => { group = e.target.value; draw(); } }, AUDIT_GROUPS.map(([v, t]) => h("option", { value: v }, t)));
+  const search = h("input", { type: "search", placeholder: "Search who, what, store…", oninput: e => { q = e.target.value.trim().toLowerCase(); draw(); } });
+  sec.append(h("div", { class: "pickbar", style: { gap: "8px", flexWrap: "wrap", padding: "8px 0" } }, count, sel, search,
+    h("button", { class: "btn sm", onclick: () => { state.auditUntil = 0; state.audit = null; render(); } }, "Lock now")));
+  const tbl = h("table", null, h("thead", null, h("tr", null, h("th", null, "When"), h("th", null, "Who"), h("th", null, "Action"), h("th", null, "Item"), h("th", null, "What changed"))), tb);
+  sec.append(tbl); draw();
 }
 function genPassword() { const a = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"; let s = ""; const r = crypto.getRandomValues(new Uint32Array(12)); for (const x of r) s += a[x % a.length]; return s; }
 
@@ -1916,7 +2043,7 @@ function showLogin(mode) {
         if (!nm) { err.textContent = "Please enter your name."; return; }
         window.__pendingName = nm;   // read by the first-sign-in handler below
         const cred = await auth.createUserWithEmailAndPassword(email.value.trim(), pass.value);
-        try { await cred.user.updateProfile({ displayName: nm }); await fsdb.collection("users").doc(cred.user.uid).set({ name: nm }, { merge: true }); if (state.user) state.user.name = nm; } catch (e) { /* name still saved on first load */ }
+        try { await cred.user.updateProfile({ displayName: nm }); await writeLogged({ action: "account.signup", target: "users", id: cred.user.uid, summary: "Name set at sign-up", after: { name: nm } }, b => b.set(fsdb.collection("users").doc(cred.user.uid), { name: nm }, { merge: true })); if (state.user) state.user.name = nm; } catch (e) { /* name still saved on first load */ }
       }
       else { await auth.sendPasswordResetEmail(email.value.trim()); ok.textContent = "Reset link sent — check your inbox."; }
     } catch (ex) { err.textContent = friendlyAuthError(ex); }
@@ -1973,7 +2100,8 @@ async function boot() {
       let snap = await ref.get();
       if (!snap.exists) {
         const isAdmin = (fbUser.email || "").toLowerCase() === ADMIN_EMAIL.toLowerCase();
-        await ref.set({ email: fbUser.email, name: fbUser.displayName || window.__pendingName || "", role: isAdmin ? "admin" : "pending", countries: isAdmin ? COUNTRIES.map(c => c.id) : [], allStores: true, stores: [], active: true, locked: false, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        const first = { email: fbUser.email, name: fbUser.displayName || window.__pendingName || "", role: isAdmin ? "admin" : "pending", countries: isAdmin ? COUNTRIES.map(c => c.id) : [], allStores: true, stores: [], active: true, locked: false };
+        await writeLogged({ action: "account.signup", target: "users", id: fbUser.uid, summary: "New account " + fbUser.email + " (" + first.role + ")", after: first }, b => b.set(ref, { ...first, createdAt: firebase.firestore.FieldValue.serverTimestamp() }));
         snap = await ref.get();
       }
       state.user = { uid: fbUser.uid, ...snap.data() };
