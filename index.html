@@ -1189,6 +1189,7 @@ function render() {
   // The activity log re-locks as soon as you leave its tab.
   if (!(state.view === "settings" && state.settingsTab === "audit")) { state.auditUntil = 0; state.audit = null; }
   if (state.loading) { root.replaceChildren(bootScreen()); return; }
+  if (state.auditOnly) { renderAuditOnly(root); return; }
   const demoBand = DB.demo ? h("div", { class: "demo-band" }, h("b", null, "Demo mode"), "Sample numbers, no sign-in. Connect Firebase (see FIREBASE-SETUP.md) to go live with real SWIMS and Lark data.") : null;
   const main = h("main");
   const app = h("div", { id: "app" }, renderTopbar(), demoBand, main);
@@ -1616,7 +1617,7 @@ function renderLark(main) {
 function renderSettings(main) {
   main.append(h("div", { class: "masthead" }, h("div", null, h("div", { class: "eyebrow" }, "Administration"), h("h1", { class: "date" }, "Settings")), feedMeta()));
   const tabs = [["profile", "My profile"], ["users", "Users", "manageUsers"], ["roles", "Roles", "manageUsers"], ["stores", "Stores", "manageStores"], ["rules", "Rules & sources", "admin"], ["appearance", "Appearance"], ["audit", "Activity log", "owner"]]
-    .filter(t => !t[2] || (t[2] === "owner" ? isOwner(state.user) : t[2] === "admin" ? (!state.user || state.user.role === "admin") : perm(t[2])));
+    .filter(t => !t[2] || (t[2] === "owner" ? (isOwner(state.user) || state.logViewer) :t[2] === "admin" ? (!state.user || state.user.role === "admin") : perm(t[2])));
   if (!tabs.some(t => t[0] === state.settingsTab)) state.settingsTab = tabs[0][0];
   const nav = h("div", { class: "snav" }, tabs.map(([id, label]) => h("button", { class: id === state.settingsTab ? "on" : "", onclick: () => { state.settingsTab = id; render(); } }, label)));
   const body = h("div", { class: "adm" });
@@ -1777,7 +1778,20 @@ function openUserEditor(u) {
       err, ok),
   ]);
 }
-/* Activity log: owner only. Opening it needs your login password again; the rules also require a sign-in within the last 5 minutes. */
+/* Activity log: the owner, plus logins on the view-only list (Firestore logViewers; the list is not in this page).
+   Opening it needs your login password again; the rules also require a sign-in within the last 5 minutes. */
+// A listed login with no role yet sees only this screen: the Activity log and Sign out.
+function renderAuditOnly(root) {
+  const body = h("div", { class: "adm" });
+  settingsAudit(body);
+  root.replaceChildren(h("div", { id: "app" },
+    h("header", { class: "topbar" },
+      h("div", { class: "brand" }, h("div", null, h("div", { class: "t1" }, "Stock Transfer Report"), h("div", { class: "t2" }, "IORA Group"))),
+      h("div", { class: "right" }, h("button", { class: "btn sm", onclick: () => auth.signOut() }, "Sign out"))),
+    h("main", null,
+      h("div", { class: "muted", style: { padding: "18px 0 4px", fontSize: "14px" } }, "Signed in as " + ((state.user && state.user.email) || "") + ". This account can view the Activity log only."),
+      h("div", { class: "section settings" }, body))));
+}
 const AUDIT_GROUPS = [["", "Everything"], ["user.", "Users"], ["role.", "Roles"], ["store.", "Stores"], ["settings.", "Rules & sources"], ["report.", "Store reports"], ["account.", "Sign-ups"]];
 const AUDIT_OPEN_MS = 4 * 60 * 1000;
 function auditPretty(s) { if (!s) return "—"; try { return JSON.stringify(JSON.parse(s), null, 2); } catch (e) { return String(s); } }
@@ -1785,7 +1799,20 @@ function settingsAudit(body) {
   const sec = h("section", { class: "section", style: { marginTop: 0 } },
     h("header", null, h("h2", null, "Activity log")));
   body.append(sec);
-  if (!isOwner(state.user)) { sec.append(h("div", { class: "muted", style: { padding: "14px" } }, "Not available.")); return; }
+  if (!isOwner(state.user) && !state.logViewer) { sec.append(h("div", { class: "muted", style: { padding: "14px" } }, "Not available.")); return; }
+  // View-only logins must confirm their email address first (the rules check it too).
+  const fu = !DB.demo && auth ? auth.currentUser : null;
+  if (!isOwner(state.user) && fu && !fu.emailVerified) {
+    const msg = h("div", { class: "muted", style: { fontSize: "13.5px" } });
+    const say = e => { msg.textContent = /too-many/.test((e && e.code) || "") ? "Too many attempts. Wait a few minutes and try again." : ((e && e.message) || String(e)); };
+    sec.append(h("div", { style: { display: "grid", gap: "18px", padding: "24px 20px 28px", maxWidth: "480px" } },
+      h("div", { class: "muted", style: { fontSize: "14px", lineHeight: "1.6" } }, "Before you can open the Activity log, confirm your email address. Press the button to get a link at " + fu.email + ", open the link, then come back here and press \"I've confirmed\"."),
+      h("div", { style: { display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" } },
+        h("button", { class: "btn solid", onclick: async () => { try { await fu.sendEmailVerification(); msg.textContent = "Email sent. Check your inbox and spam folder."; } catch (e) { say(e); } } }, "Send confirmation email"),
+        h("button", { class: "btn", onclick: async () => { try { await fu.reload(); await auth.currentUser.getIdToken(true); if (auth.currentUser.emailVerified) render(); else msg.textContent = "Not confirmed yet. Open the link in the email first."; } catch (e) { say(e); } } }, "I've confirmed")),
+      msg));
+    return;
+  }
   if (Date.now() >= (state.auditUntil || 0)) {
     const pw = h("input", { type: "password", autocomplete: "current-password", placeholder: "••••••••", style: { width: "100%" } });
     const err = h("div", { class: "err" });
@@ -1810,7 +1837,7 @@ function settingsAudit(body) {
     };
     pw.addEventListener("keydown", e => { if (e.key === "Enter") go(); });
     sec.append(h("div", { style: { display: "grid", gap: "18px", padding: "24px 20px 28px", maxWidth: "440px" } },
-      h("div", { class: "muted", style: { fontSize: "14px", lineHeight: "1.6" } }, "This page is locked. Enter your password to open it. It locks again after 4 minutes or when you leave the page."),
+      h("div", { class: "muted", style: { fontSize: "14px", lineHeight: "1.6" } }, "This page is locked. Enter the same password you use to sign in to this dashboard to open it. It locks again after 4 minutes or when you leave the page."),
       h("label", { style: { display: "grid", gap: "8px" } }, h("span", { style: { fontSize: "13px", fontWeight: "600" } }, "Password"), pwBox(pw)),
       h("div", { style: { display: "flex", alignItems: "center", gap: "14px", flexWrap: "wrap" } }, h("button", { class: "btn solid", onclick: go }, "Unlock"), err)));
     return;
@@ -2115,7 +2142,7 @@ async function boot() {
   DB = makeFirestoreDB();
   try { const d = await fsdb.collection("config").doc("app").get(); if (d.exists) state.settings = { ...DEFAULT_SETTINGS, ...d.data() }; } catch (e) { /* public read may be denied before sign-in; defaults apply */ }
   auth.onAuthStateChanged(async fbUser => {
-    if (!fbUser) { state.user = null; showLogin("signin"); return; }
+    if (!fbUser) { state.user = null; state.logViewer = false; state.auditOnly = false; showLogin("signin"); return; }
     try {
       const ref = fsdb.collection("users").doc(fbUser.uid);
       let snap = await ref.get();
@@ -2129,11 +2156,17 @@ async function boot() {
       const u = state.user;
       if (u.locked) return showGate("Account locked", "An Administrator has locked this account. Contact them if that's a mistake.");
       if (u.active === false) return showGate("Account inactive", "This account is switched off. An Administrator can reactivate it under Settings → Users.");
+      // View-only Activity log list: each login can look up only its own entry.
+      state.logViewer = false; state.auditOnly = false;
+      if (!isOwner(u)) { try { state.logViewer = (await fsdb.collection("logViewers").doc(String(fbUser.email || "").toLowerCase()).get()).exists; } catch (e) {} }
+      const logOnly = () => { state.auditOnly = true; state.view = "settings"; state.settingsTab = "audit"; state.loading = false; render(); };
       if (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role))) {
         try { state.roles = await DB.loadRoles(); } catch (e) {}
+        if (state.logViewer && (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role)))) return logOnly();
         if (!u.role || u.role === "pending" || (u.role !== "admin" && !roleInfo(u.role))) return showGate("Waiting for approval", "You're signed in as " + u.email + ". An Administrator needs to give you a role before you can see the ledger.");
       }
       await loadAll();
+      if (u.role !== "admin" && !visibleCountries().length && state.logViewer) return logOnly();
       if (u.role !== "admin" && !visibleCountries().length) return showGate("No country access yet", "Ask an Administrator to tick Singapore and/or Malaysia for your account.");
     } catch (e) { console.error(e); showGate("Something went wrong", (e && e.message) || String(e)); }
   });
